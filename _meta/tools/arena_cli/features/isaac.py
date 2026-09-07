@@ -4,10 +4,9 @@ import os
 import sys
 
 import common
+import features
 from common import CLIError, Verb, make_verb
 from complete import LaunchArgs
-
-import features
 from features import lifecycle_verbs, source_verb
 
 NAME = "isaac"

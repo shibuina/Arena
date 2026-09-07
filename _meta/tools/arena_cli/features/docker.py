@@ -3,10 +3,9 @@
 import os
 import sys
 
-from common import CLIError, Verb, _env, _env_set, _host_path, _row, make_verb
-from complete import Static
-
 import features
+from common import CLIError, Verb, _env_set, _host_path, _row, make_verb
+from complete import Static
 
 NAME = "docker"
 

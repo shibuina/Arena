@@ -2,10 +2,9 @@
 
 import os
 
+import features
 from common import CLIError, _env_file, _env_set, _host_path, _row, make_verb
 from complete import Static
-
-import features
 
 DESCRIPTION = "Workspace settings, persisted in .env.\n\nEvery `source arena` reads them, on the host and in the container. A bare command shows the current value."
 
@@ -78,9 +77,4 @@ def net(argv: list[str]) -> None:
     _net_status(hint=not argv)
 
 
-COMMANDS = {
-    v.name: v
-    for v in (
-        make_verb("net", net, complete=Static(NET_MODES)),
-    )
-}
+COMMANDS = {v.name: v for v in (make_verb("net", net, complete=Static(NET_MODES)),)}

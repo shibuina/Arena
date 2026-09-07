@@ -490,14 +490,7 @@ def test_scenario_view_load_legacy_shape_still_falls_back(tmp_path):
 # Fire-alarm reference scenario (M2-D reference)
 # ---------------------------------------------------------------------------
 
-_FIRE_ALARM_SCENARIO = (
-    Path(__file__).resolve().parents[2]
-    / "worlds"
-    / "three_storied_residential"
-    / "scenarios"
-    / "fire_alarm"
-    / "scenario.yaml"
-)
+_FIRE_ALARM_SCENARIO = Path(__file__).resolve().parents[2] / "worlds" / "three_storied_residential" / "scenarios" / "fire_alarm" / "scenario.yaml"
 
 
 def test_fire_alarm_reference_scenario_parses():
@@ -519,13 +512,7 @@ def test_fire_alarm_reference_scenario_parses():
     assert {c.name: c.value for c in radio.semantics} == {"sounding": True, "volume_db": 62.0}
 
 
-_FIRE_ALARM_WORLD = (
-    Path(__file__).resolve().parents[2]
-    / "worlds"
-    / "three_storied_residential"
-    / "1"
-    / "world.yaml"
-)
+_FIRE_ALARM_WORLD = Path(__file__).resolve().parents[2] / "worlds" / "three_storied_residential" / "1" / "world.yaml"
 
 
 def test_fire_alarm_reference_regime_wired():
@@ -574,14 +561,7 @@ def test_fire_alarm_reference_regime_wired():
 # Fire-alarm evacuation reference scenario (pedestrian stimulus reference)
 # ---------------------------------------------------------------------------
 
-_EVACUATION_SCENARIO = (
-    Path(__file__).resolve().parents[2]
-    / "worlds"
-    / "hospital_1"
-    / "scenarios"
-    / "fire_alarm_evacuation"
-    / "scenario.yaml"
-)
+_EVACUATION_SCENARIO = Path(__file__).resolve().parents[2] / "worlds" / "hospital_1" / "scenarios" / "fire_alarm_evacuation" / "scenario.yaml"
 
 _EVACUATION_WORLD = Path(__file__).resolve().parents[2] / "worlds" / "hospital_1" / "0" / "world.yaml"
 

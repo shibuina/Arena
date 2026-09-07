@@ -4,9 +4,8 @@ import os
 import sys
 
 import common
-from common import CLIError, Verb, make_verb
-
 import features
+from common import CLIError, Verb, make_verb
 from features import source_verb
 
 NAME = "vllm"
