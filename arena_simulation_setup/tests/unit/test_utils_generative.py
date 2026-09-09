@@ -115,8 +115,9 @@ def test_hallway_compute_room_count_per_side():
         random.Random(42),
     )
     wd = gen.compute()
-    # 2 sides, each with (1 hallway + rooms_per_side) zones
-    assert len(wd.zones) == 2 * (1 + 3)
+    # one shared hallway, then rooms_per_side rooms on each side
+    assert len(wd.zones) == 1 + 2 * 3
+    assert [z.name for z in wd.zones].count("hallway") == 1
 
 
 def test_hallway_compute_doors_per_room():
