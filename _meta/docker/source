@@ -192,6 +192,7 @@ if [ "$1" = "uninstall" ]; then
 fi
 
 mkdir -p "$ARENA_DATA_DIR"
+mkdir -p "$ARENA_DATA_DIR/screenshots"
 mkdir -p "$ARENA_DIR/.venv"
 mkdir -p "$ARENA_WS_DIR/build"
 mkdir -p "$ARENA_WS_DIR/install"
