@@ -397,31 +397,23 @@ def rebuild(args: list[str]) -> None:
     Bare names expand to --packages-above like `arena build`.
     """
     import shutil
-    import subprocess
+
+    from build import build_main, resolve_packages, workspace
 
     if not args:
         raise CLIError("rebuild needs a package selection")
     argv = _select_args(args, above=True)
-    listing = subprocess.run(
-        ["colcon", "list", "--names-only", "--base-paths", os.path.join(_env("ARENA_WS_DIR"), "src"), *argv],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if listing.returncode:
-        raise CLIError("colcon list rejected the arguments, aborting before clean")
-    pkgs = [line.strip() for line in listing.stdout.splitlines() if line.strip()]
+    pkgs = resolve_packages(argv)
     if not pkgs:
         raise CLIError("no packages matched")
+    ws = workspace()
     print(f"arena rebuild: resolved {len(pkgs)} package(s): {' '.join(pkgs)}")
     for pkg in pkgs:
-        for tree in (os.path.join("build", pkg), os.path.join("install", pkg)):
+        for tree in (os.path.join(ws.build_base, pkg), os.path.join(ws.install_base, pkg)):
             if os.path.isdir(tree):
                 print(f"  rm -rf {tree}")
                 shutil.rmtree(tree)
     print("arena rebuild: clean done, invoking build")
-    from build import build_main
-
     sys.exit(build_main(argv))
 
 
@@ -431,23 +423,21 @@ TEST_DEFAULT_SELECT = ("--packages-select-regex", "^arena_", "^task_generator$")
 @verb("test", passthrough=True, complete=Packages(), help_text=f"Run colcon test and print a summary.\n\nDefaults to `{' '.join(TEST_DEFAULT_SELECT)}` unless a selection flag is given. Bare package names are shorthand for --packages-select.")
 def test(args: list[str]) -> None:
     import re
-    import subprocess
+
+    from build import resolve_packages, workspace
 
     argv = _select_args(args)
     if not any(re.match(r"^--packages-(select|select-regex|up-to|above|ignore)", a) for a in argv):
         argv = [*TEST_DEFAULT_SELECT, *argv]
-    src_dir = os.path.join(_env("ARENA_WS_DIR"), "src")
-    listing = subprocess.run(
-        ["colcon", "list", "--names-only", "--base-paths", src_dir, *argv],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    pkgs = [line.strip() for line in listing.stdout.splitlines() if line.strip()] if listing.returncode == 0 else []
-    test_rc = _run("colcon", "test", "--base-paths", src_dir, "--event-handlers", "console_direct+", *argv)
+    ws = workspace()
+    try:
+        pkgs = resolve_packages(argv)
+    except CLIError:
+        pkgs = []
+    test_rc = _run("colcon", "test", "--base-paths", *ws.base_paths, "--build-base", ws.build_base, "--install-base", ws.install_base, "--event-handlers", "console_direct+", *argv)
     from testsum import summarize
 
-    summary = [os.path.join(_env("ARENA_WS_DIR"), "build")]
+    summary = [ws.build_base]
     if pkgs:
         summary += ["--packages", *pkgs]
     summary_rc = summarize(summary)
