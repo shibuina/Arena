@@ -32,8 +32,8 @@
 	update = checkout
 [submodule "humansim"]
 	path = humansim
-	url = https://github.com/voshch/humansim.git
-	branch = jazzy
+	url = https://github.com/shibuina/humansim.git
+	branch = feature/edge_case
 	update = checkout
 [submodule "arena_auditory"]
 	path = arena_auditory
@@ -50,3 +50,7 @@
 	url = https://github.com/voshch/arena-hearing.git
 	branch = jazzy
 	update = checkout
+[submodule "arena_benchmark"]
+	path = arena_benchmark
+	url = https://github.com/shibuina/arena_benchmark.git
+	branch = main
