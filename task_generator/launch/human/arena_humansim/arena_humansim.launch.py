@@ -17,6 +17,8 @@ def _include(context: launch.LaunchContext) -> list[launch.LaunchDescriptionEnti
             ),
             args={
                 'markers': '1',
+                # Generated worlds are furnished tightly: at the default 0.38 m the navmesh seals meeting rooms.
+                'global_planner.inflation_radius': '0.25',
                 **forwarded,
                 'mode': 'subsystem',
                 'use_sim_time': 'true',

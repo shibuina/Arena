@@ -11,11 +11,13 @@ EPISODE_PARAMS: dict[str, str] = {
     'task.episode.count': 'Stop the env after N episodes (-1 = run forever).',
     'task.episode.auto_reset': 'true = standalone: node auto-advances episodes. false = managed: external controller drives resets via lifecycle/reset_episode.',
     'task.episode.fail_on_collision': 'true = abort the episode (FAILED) when the robot footprint contacts a wall, static obstacle, or pedestrian.',
+    'task.episode.fail_on_static_collision': 'true = abort the episode (FAILED) when the robot footprint contacts a wall or static obstacle; pedestrians excluded.',
     'task.episode.timeout': 'Episode time limit in sim seconds (-1 = none).',
     'task.episode.timeout.robot_ready': 'Seconds to wait for robot adapters to become ready (-1 = unbounded).',
     'task.episode.reset.max_fails': 'Consecutive reset failures before the env gives up.',
     'task.episode.spawn.robot_clearance': 'Clearance in metres added to the robot radius when placing robot spawns and goals.',
     'task.episode.spawn.obstacle_clearance': 'Clearance in metres around scenario obstacle placements.',
+    'task.episode.spawn.pedestrian_radius': 'Nominal pedestrian body radius in metres kept clear of robot starts and goals.',
     'task.episode.spawn.obstacle_max_radius': 'Largest obstacle radius in metres (-1 = unbounded).',
     'task.episode.goto_pose.tolerance.radius': 'Goal position tolerance in metres for goto_pose phases.',
     'task.episode.goto_pose.tolerance.angle': 'Goal heading tolerance in radians for goto_pose phases.',
@@ -26,11 +28,13 @@ DEPRECATED_PARAMS: dict[str, str] = {
     'episodes': 'task.episode.count',
     'auto_reset': 'task.episode.auto_reset',
     'fail_on_collision': 'task.episode.fail_on_collision',
+    'fail_on_static_collision': 'task.episode.fail_on_static_collision',
     'timeout': 'task.episode.timeout',
     'robot.ready_timeout': 'task.episode.timeout.robot_ready',
     'max_reset_fail_times': 'task.episode.reset.max_fails',
     'robot_safe_dist': 'task.episode.spawn.robot_clearance',
     'obstacle_safe_dist': 'task.episode.spawn.obstacle_clearance',
+    'pedestrian_body_radius': 'task.episode.spawn.pedestrian_radius',
     'obstacle_max_radius': 'task.episode.spawn.obstacle_max_radius',
     'goal_tolerance_radius': 'task.episode.goto_pose.tolerance.radius',
     'goal_tolerance_angle': 'task.episode.goto_pose.tolerance.angle',
@@ -106,7 +110,14 @@ def Configuration(server: ROSParamServer) -> type:
 
             SAFE_DIST = server.ROSParam[float](
                 'task.episode.spawn.obstacle_clearance',
-                0.35,
+                0.15,
+            )
+
+            #: Nominal body radius of a spawned pedestrian, metres. SAFE_DIST clears a pedestrian's
+            #: centre; this clears its body. Matches the `agent_radius` the builtin agent types declare.
+            PEDESTRIAN_BODY_RADIUS = server.ROSParam[float](
+                'task.episode.spawn.pedestrian_radius',
+                0.25,
             )
 
         class Robot:

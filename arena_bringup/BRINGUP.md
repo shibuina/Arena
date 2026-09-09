@@ -478,9 +478,11 @@ given) and will be removed in a future release.
 | `episodes` | `task.episode.count` |
 | `auto_reset` | `task.episode.auto_reset` |
 | `fail_on_collision` | `task.episode.fail_on_collision` |
+| `fail_on_static_collision` | `task.episode.fail_on_static_collision` |
 | `task.episodes` | `task.episode.count` |
 | `task.auto_reset` | `task.episode.auto_reset` |
 | `task.fail_on_collision` | `task.episode.fail_on_collision` |
+| `task.fail_on_static_collision` | `task.episode.fail_on_static_collision` |
 | `mobile`, `mobile.<key>` | `robot.mobile`, `robot.mobile.<key>` |
 | `arm`, `arm.<key>` | `robot.arm`, `robot.arm.<key>` |
 | `planner` | `robot.planner` |

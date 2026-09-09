@@ -42,6 +42,9 @@ Old flat names (`tm_robots`, `mobile`, `env_n`, ...) still work with a warning, 
 | `task.params` | string | `configs/task_generator.yaml` | Task-generator ROS parameter YAML |
 | `task.episode.count` | int string | `-1` | Stop the env after N episodes (`-1` = run forever) |
 | `task.episode.fail_on_collision` | bool string | `false` | Abort the episode as FAILED on robot footprint contact |
+| `task.episode.fail_on_static_collision` | bool string | `false` | Abort the episode as FAILED on robot contact with a wall or static obstacle; pedestrian contact stays a metric |
+| `task.episode.spawn.pedestrian_radius` | float string | `0.25` | Pedestrian body radius kept clear of robot starts and goals, on top of the robot's clearance |
+| `task.run_seed` | string | `` (empty) | Pins per-episode seed derivation for reproducible runs (empty = random per boot) |
 | `world` | string | `map_empty` | World name; resolved under `arena_simulation_setup/worlds/` |
 | `world.lighting` | string | `authored` | `authored` renders the lights the world declares. `auto` also gives every zone with a ceiling and no lights of its own a calibrated ceiling rig, see [AUTHORING.md](../../arena_simulation_setup/AUTHORING.md). |
 | `acoustics` | `none` \| `arena` | `none` | Acoustics simulator: `arena` runs arena_auditory (sound propagation, robot and human sound emission, rendering, playback). The `auditory.*` sub-keys below take effect only with `arena`, see [arena_auditory/README.md](../../arena_auditory/README.md) and [launch/acoustics](../../task_generator/launch/acoustics/README.md). `arena` needs the auditory feature (`arena feature auditory install`). |
