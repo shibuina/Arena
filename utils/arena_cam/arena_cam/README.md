@@ -606,7 +606,7 @@ current value on each, which is 0 except inside a `pov`.
 
 ## Requirements
 
-rviz and all simulators host the `/arena/viewport/*` contract (`set_view`,
+Two backends host the `/arena/viewport/*` contract (`set_view`,
 `set_reference_frame`, `set_projection`, `capture`, plus the `cmd_view` /
 `camera_pose` topics):
 
