@@ -235,6 +235,7 @@ via `/arena/spawn_env`.
 | `headless` | `false` | `true` = hide the sim GUI (server-only mode for Gazebo). Implicitly sets `viz:=false` unless `viz:=true` is explicit. |
 | `viz` | `true` | Controls whether `arena viz --all` is called after envs come up. Ignored when `headless:=true` unless overridden. |
 | `human.steering` | `auto` | Per-env `human_steering` panel. `auto` = attach when the resolved `human` backend is `dummy` (and not headless). `true` = always attach, wins over `headless`. `false` = never. |
+| `humansim.<arg>` | engine default | Any launch arg of the `arena` human backend. The prefix is stripped and the arg is forwarded to [arena_humansim.launch.py](../humansim/arena_humansim/launch/arena_humansim.launch.py), e.g. `humansim.local_planner:=orca`, `humansim.local_planner.relaxation_time:=0.7` or `humansim.global_planner.resolution:=0.1` (finer planning grid, opens 1 m doors to pedestrians). The same keys work per episode as `QueueEpisode.human_params`. `mode`, `use_sim_time`, `rviz`, and `namespace` are pinned. |
 | `humansim.markers` | `2` | Debug marker level of the `arena` human backend: `0` = off (also hides its rviz panels), `1` = agent bodies, headings and infrastructure, `2` = adds goals, paths, waypoints, vision cones and force vectors. Lower it to cut per-tick marker cost in crowded scenarios. |
 | `viz.view` | `map` | Camera view in rviz: `map` (TopDownOrtho), `robot` (Orbit on robot base), `robot3p` (ThirdPersonFollower on robot base). |
 | `viz.robot` | `0` | Robot index in the fleet for `viz.view:=robot*`. `all` spawns one rviz window per robot. Ignored when `view=map`. |
@@ -353,6 +354,22 @@ Default is `gazebo`. Valid values:
 | `gazebo` (default) | gz-sim 8, dart physics, ogre renderer. `human` defaults to `arena` (arena_humansim). |
 | `isaac` | Isaac Sim via `arena feature isaac launch`. `mobile` defaults to `nav2`. |
 | `dummy` | No physics engine; a static `map->dummy` TF is published. For plumbing-only checks (no GPU, no controllers). Must be passed explicitly. |
+
+### sim.isaac.*
+
+| Key | Default | Meaning |
+|---|---|---|
+| `sim.isaac.physics` | `physx` | Physics engine, `physx` or `newton`. |
+| `sim.isaac.viewport.preset` | `photoreal` | Base viewport render preset, `photoreal` or `boring`. The keys below override single fields of the chosen preset and keep the preset value when empty. |
+| `sim.isaac.viewport.resolution` | preset | Render size of the GUI viewport, `WxH` (for example `1920x1080`) or `dynamic` (fill the window). Recordings capture the viewport, so this is the recording resolution. |
+| `sim.isaac.viewport.scale` | preset | Resolution scale factor applied on top of the render size. |
+| `sim.isaac.viewport.dlss` | preset | DLSS mode, `auto`, `quality`, `balanced` or `performance`. |
+| `sim.isaac.viewport.lighting` | preset | Lighting rig, `lights_off`, `camera_light`, `stage_lights`, `colored_lights`, `default` or `grey_studio`. |
+| `sim.isaac.viewport.overlays` | preset | Overlays drawn in the viewport, comma list of `axis`, `grid`, `bbox`, or `none`. |
+
+The viewport keys act on the GUI viewport only, so they have no effect under
+`headless:=true`. Robot camera sensors render through their own products and
+are unaffected.
 
 ### debug:= and optim:=
 

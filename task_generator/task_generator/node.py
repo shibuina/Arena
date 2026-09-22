@@ -219,6 +219,8 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
 
         self._staged_obstacles_params: dict[str, ParameterValue] = {}
         self._staged_robots_params: dict[str, ParameterValue] = {}
+        self._staged_human_params: dict[str, ParameterValue] = {}
+        self._human_params: dict[str, ParameterValue] = {}
 
         # M2 semantics write path: inert-zone field overrides, bare->realized entity
         # name map, and the scenario timeline evaluated on sim time.
@@ -578,6 +580,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
         msg = self._record_to_msg(self._episodes.current)
         msg.obstacles_params = self._params_for_mode(self._episodes.current.tm_obstacles)
         msg.robots_params = self._params_for_mode(self._episodes.current.tm_robots)
+        msg.human_params = [RclParameter(name=k, value=v) for k, v in self._human_params.items()]
         self._pub_state_episode.publish(msg)
 
     def _semantic_entity_state_msg(self, snap: "SemanticEntitySnapshot") -> task_generator_msgs.msg.SemanticEntityState:
@@ -677,7 +680,9 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
         msg.stamp = self.sim_time.to_msg()
         msg.env_id = self._env_id
         msg.world = self._world_manager.loaded_world
-        entities = [self._semantic_entity_state_msg(s) for s in self._simulator.semantics_snapshot()]
+        snapshots = self._simulator.semantics_snapshot()
+        self._world_manager.publish_world_markers(snapshots)
+        entities = [self._semantic_entity_state_msg(s) for s in snapshots]
         entities.extend(self._zone_semantic_states())
         msg.entities = entities
         self._pub_state_semantics.publish(msg)
@@ -924,7 +929,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
                 topic_must_exist=False,
             ),
         ]
-        latched = StyleSpec(extra={"rviz": {"Reliability Policy": "Reliable", "Durability Policy": "Transient Local"}}).to_json()
+        latched = StyleSpec(latched=True).to_json()
         human_sim = self.conf.Arena.HUMAN.value
         if human_sim not in (Constants.HumanSimulator.DUMMY, Constants.HumanSimulator.NONE):
             env_displays.append(
@@ -976,6 +981,18 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
                         group="Static",
                     )
                 )
+
+        env_displays.append(
+            AdapterDisplay(
+                name="World",
+                topic=f"{env_ns}/world_markers",
+                topic_type="visualization_msgs/MarkerArray",
+                kind=DisplayKind.MARKER_ARRAY,
+                style_json=StyleSpec(latched=True, enabled=False).to_json(),
+                topic_must_exist=False,
+                group="Static",
+            )
+        )
 
         for name, topic in (
             (
@@ -1154,6 +1171,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
         msg.integrity = True
         msg.obstacles_params = [RclParameter(name=k, value=v) for k, v in obstacles_map.items()]
         msg.robots_params = [RclParameter(name=k, value=v) for k, v in robots_map.items()]
+        msg.human_params = [RclParameter(name=k, value=v) for k, v in (self._human_params | self._staged_human_params).items()]
         self._pub_state_queue.publish(msg)
 
     async def _build_next_record(self, world: str, seed: int) -> None:
@@ -1443,6 +1461,18 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
                     return response
                 validated_modules.append(mod_str)
 
+        namespaces = sorted(Constants.HUMAN_PARAM_NAMESPACES.values())
+        for p in request.human_params:
+            namespace, _, leaf = p.name.partition(".")
+            if namespace == Constants.HUMAN_PARAM_RESERVED:
+                response.success = False
+                response.error_msg = f"human_params: {p.name!r} is reserved, no universal params are defined. Namespaces: {', '.join(namespaces)}"
+                return response
+            if namespace not in namespaces or not leaf:
+                response.success = False
+                response.error_msg = f"human_params: {p.name!r} has no known namespace. Namespaces: {', '.join(namespaces)}"
+                return response
+
         existing = self._episodes.pending_overrides or TaskModeOverrides(keep_modules=True)
         if request.tm_robots:
             if request.tm_robots != existing.tm_robots:
@@ -1464,6 +1494,8 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             self._staged_obstacles_params[p.name] = p.value
         for p in request.robots_params:
             self._staged_robots_params[p.name] = p.value
+        for p in request.human_params:
+            self._staged_human_params[p.name] = p.value
 
         mid_episode = self._episodes.action_in_flight and self._episodes.current.episode_id > 0
         if mid_episode:
@@ -1515,6 +1547,12 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             result = self.set_parameters_atomically(batch)
             if not result.successful:
                 log.warning(f"staged params {list(merged)} rejected: {result.reason}")
+
+    async def _apply_staged_human_params(self) -> None:
+        staged = [RclParameter(name=k, value=v) for k, v in self._staged_human_params.items()]
+        self._staged_human_params.clear()
+        for p in await self._environment_manager.configure_humans(staged):
+            self._human_params[p.name] = p.value
 
     async def _cb_get_task_modes(
         self,
