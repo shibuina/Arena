@@ -1,21 +1,19 @@
-# Earshot video intro. The robot idles in the south corridor facing east. One pedestrian
-# walks the S-bend from the north corridor, arrives behind the robot, passes on its left
-# and continues to the east end. The take script sends the robot goal once the pedestrian
-# is ahead, so the footsteps are heard first and the drivetrain later.
+# Earshot video intro (20 s take). The robot is parked in the middle corridor facing east.
+# One pedestrian comes up the west link behind the robot, passes on its left, walks east and
+# leaves through the east link into the north corridor (out of frame for the rest of the
+# take). The take script sends the robot goal once the pedestrian is ahead, so the footsteps
+# are heard first and the drivetrain later. Robot pose is applied via task.robots:=stationary.
 robots:
-  - start: [3.5, 1.9, 0.0]
+  - start: [3.5, 6.5, 0.0]
     phases: []
 static: []
 dynamic:
   - name: passer
     model: female_adult_medical_01
-    pose: [1.5, 11.5, 0.0]
+    pose: [1.5, 3.2, 1.5708]
     agent: {agent_type: adult, desired_velocity: 1.2}
     waypoints:
-      - [8.5, 11.5, 0.0]
-      - [8.5, 9.0, -1.5708]
-      - [8.5, 6.5, 3.14159]
-      - [1.5, 6.5, 3.14159]
-      - [1.5, 4.0, -1.5708]
-      - [1.5, 2.4, 0.0]
-      - [9.2, 2.4, 0.0]
+      - [1.5, 6.6, 1.5708]
+      - [8.5, 6.6, 0.0]
+      - [8.5, 11.5, 1.5708]
+      - [1.5, 11.5, 3.14159]

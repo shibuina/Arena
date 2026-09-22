@@ -2,7 +2,7 @@
 # behind and above the chassis, and holds. Screen-left is robot-left.
 params:
   subject: env_0/jackal/base_link
-  duration: 42.0
+  duration: 20.0
 reference:
   entity: "${subject}"
   mode: yaw
