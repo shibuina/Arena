@@ -1,0 +1,14 @@
+# Earshot: a colleague leaves the storage room onto the main hallway ahead of the idle robot,
+# hidden by the wall until the doorway, then walks east past it.
+robots:
+  - start: [22.0, 12.0, 3.14159]
+    phases: []
+static: []
+dynamic:
+  - name: courier
+    model: Office/office_male_african_middleage
+    pose: storage
+    agent: {agent_type: adult, desired_velocity: 1.3}
+    waypoints:
+      - [14.0, 12.4, 0.0]
+      - [30.0, 12.4, 0.0]

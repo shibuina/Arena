@@ -1,0 +1,15 @@
+# Earshot: a nurse steps out of exam room 1 into the central hallway ahead of the idle robot,
+# heard through the wall before she is seen, then walks south past it.
+robots:
+  - start: [10.0, 11.5, -1.5708]
+    phases: []
+static: []
+dynamic:
+  - name: nurse
+    model: Hospital/nurse_female_caucasian_young
+    pose: exam_room_1
+    agent: {agent_type: adult, desired_velocity: 1.3}
+    waypoints:
+      - [9.2, 7.6, 0.0]
+      - [10.6, 6.0, -1.5708]
+      - [10.6, 1.5, -1.5708]
