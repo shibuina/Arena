@@ -328,6 +328,19 @@ _LOCKSTEP_SPEC = Sub(
 )
 
 
+_SERVICE_TIMEOUT_S = 30
+
+
+def _srv_guard(service: str, unreachable: str) -> str:
+    """Shell test that prints `unreachable` and exits 1 unless `service` is advertised."""
+    return f'ros2 service list 2>/dev/null | grep -qx {service} || {{ echo "{unreachable}"; exit 1; }}'
+
+
+def _srv_call(service: str, request: str) -> str:
+    """Capture one timeout-bounded service call into `$R`, exiting 1 with a message when it times out."""
+    return f'R=$(timeout {_SERVICE_TIMEOUT_S} ros2 service call {service} {request} 2>&1) || [ $? -ne 124 ] || {{ echo "no response from {service} within {_SERVICE_TIMEOUT_S} s"; exit 1; }}'
+
+
 @verb("lockstep", complete=_LOCKSTEP_SPEC)
 def lockstep(args: list[str]) -> None:
     """Run or inspect the lockstep scheduler.
@@ -351,7 +364,7 @@ def lockstep(args: list[str]) -> None:
     unreachable = "lockstep unreachable"
 
     def srv_guard(name: str) -> str:
-        return f'ros2 service list 2>/dev/null | grep -qx /arena/sim_lifecycle/lockstep/{name} || {{ echo "{unreachable}"; exit 1; }}'
+        return _srv_guard(f"/arena/sim_lifecycle/lockstep/{name}", unreachable)
 
     if action == "status":
         _exec(
@@ -359,19 +372,19 @@ def lockstep(args: list[str]) -> None:
             "-c",
             f'ros2 topic list 2>/dev/null | grep -qx /arena/state/lockstep || {{ echo "{unreachable}"; exit 1; }}; ros2 topic echo /arena/state/lockstep --once --qos-durability transient_local --qos-reliability reliable',
         )
-    stop = "ros2 service call /arena/sim_lifecycle/lockstep/stop std_srvs/srv/Trigger >/dev/null 2>&1"
     if action == "off":
-        _exec("bash", "-c", f'{srv_guard("stop")}; {stop} && echo "lockstep off"')
+        stop = _srv_call("/arena/sim_lifecycle/lockstep/stop", "std_srvs/srv/Trigger")
+        _exec("bash", "-c", f'{srv_guard("stop")}; {stop}; grep -q "success=True" <<< "$R" && echo "lockstep off"')
     if action in ("pause", "resume"):
         _exec(
             "bash",
             "-c",
-            f"{srv_guard(action)}; R=$(ros2 service call /arena/sim_lifecycle/lockstep/{action} std_srvs/srv/Trigger 2>&1); grep -q \"success=True\" <<< \"$R\" && echo \"lockstep {action}d\" || {{ echo \"lockstep not running\"; exit 1; }}",
+            f"{srv_guard(action)}; {_srv_call(f"/arena/sim_lifecycle/lockstep/{action}", "std_srvs/srv/Trigger")}; grep -q \"success=True\" <<< \"$R\" && echo \"lockstep {action}d\" || {{ echo \"lockstep not running\"; exit 1; }}",
         )
     if action == "gate":
         channels = [_lockstep_parse_channel(a) for a in rest]
         reg = "registration: {caller: 'cli', env: ''" + f", channels: [{', '.join(_lockstep_channel_yaml(c) for c in channels)}]}}"
-        register = f"{srv_guard('register')}; R=$(ros2 service call /arena/sim_lifecycle/lockstep/register arena_runtime_msgs/srv/LockstepRegister \"{reg}\" 2>&1); grep -q \"success=True\" <<< \"$R\" || {{ grep -oE \"error_msg=.*\" <<< \"$R\"; exit 1; }}"
+        register = f"{srv_guard('register')}; {_srv_call("/arena/sim_lifecycle/lockstep/register", f'arena_runtime_msgs/srv/LockstepRegister "{reg}"')}; grep -q \"success=True\" <<< \"$R\" || {{ grep -oE \"error_msg=.*\" <<< \"$R\"; exit 1; }}"
         msg = "cli gates: " + ", ".join(c["name"] for c in channels) if channels else "cli gates cleared"
         _exec("bash", "-c", f'{register} && echo "{msg}"')
 
@@ -391,10 +404,10 @@ def lockstep(args: list[str]) -> None:
         else:
             raise CLIError(f"lockstep {action}: unrecognized argument '{a}'")
     start_req = f"{{target_rtf: {rtf if rtf is not None else 0.0}, ungated: {'true' if ungated else 'false'}}}"
-    start = f"{srv_guard('start')}; R=$(ros2 service call /arena/sim_lifecycle/lockstep/start arena_runtime_msgs/srv/LockstepStart '{start_req}' 2>&1); grep -q \"success=True\" <<< \"$R\" || {{ grep -oE \"error_msg=.*\" <<< \"$R\"; exit 1; }}"
+    start = f"{srv_guard('start')}; {_srv_call("/arena/sim_lifecycle/lockstep/start", f"arena_runtime_msgs/srv/LockstepStart '{start_req}'")}; grep -q \"success=True\" <<< \"$R\" || {{ grep -oE \"error_msg=.*\" <<< \"$R\"; exit 1; }}"
     if action == "on":
         _exec("bash", "-c", f'{start} && echo "lockstep on"')
-    pause_cmd = "ros2 service call /arena/sim_lifecycle/lockstep/pause std_srvs/srv/Trigger >/dev/null 2>&1"
+    pause_cmd = f"timeout {_SERVICE_TIMEOUT_S} ros2 service call /arena/sim_lifecycle/lockstep/pause std_srvs/srv/Trigger >/dev/null 2>&1"
     trap_pause = f"ros2 service list 2>/dev/null | grep -qx /arena/sim_lifecycle/lockstep/pause && {pause_cmd}; echo lockstep paused"
     wait = f"sleep {duration}" if duration is not None else "sleep infinity"
     _exec(
@@ -420,7 +433,8 @@ def cleanup(args: list[str]) -> None:
     """Tear down one env by id via /arena/cleanup_env."""
     if len(args) != 1 or not args[0].isdigit():
         raise CLIError("cleanup takes one non-negative integer ENV_ID")
-    _exec("ros2", "service", "call", "/arena/cleanup_env", "arena_runtime_msgs/srv/CleanupEnv", f"{{env_id: {args[0]}}}")
+    call = _srv_call("/arena/cleanup_env", f'arena_runtime_msgs/srv/CleanupEnv "{{env_id: {args[0]}}}"')
+    _exec("bash", "-c", f'{_srv_guard("/arena/cleanup_env", "arena runtime unreachable")}; {call}; grep -q "success=True" <<< "$R" && echo "env {args[0]} cleaned up" || {{ grep -oE "error_msg=.*" <<< "$R"; exit 1; }}')
 
 
 @verb("build", passthrough=True, complete=Packages())
