@@ -7,5 +7,5 @@ reference:
   entity: "${subject}"
   mode: yaw
 timeline:
-  - look: { eye: [-0.9, 0.0, 0.60], target: [3.0, 0.0, 0.35] }
+  - look: { eye: [-0.9, 0.0, 0.60], target: [2.0, 0.0, 0.0], fov: 1.2 }
   - hold: { duration: "${duration}" }
