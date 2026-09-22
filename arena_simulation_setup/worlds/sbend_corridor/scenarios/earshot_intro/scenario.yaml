@@ -1,0 +1,19 @@
+# Earshot video intro. The robot idles in the south corridor facing west. One pedestrian
+# starts 8 m behind it, walks past on its left, and continues around the S-bend. The
+# robot's goal is sent by the take script once the pedestrian is ahead, so the footsteps
+# are heard first and the drivetrain later.
+robots:
+  - start: [7.0, 1.9, 3.14159]
+    phases: []
+static: []
+dynamic:
+  - name: passer
+    model: female_adult_medical_01
+    pose: [9.6, 1.1, 3.14159]
+    agent: {agent_type: adult, desired_velocity: 1.2}
+    waypoints:
+      - [4.0, 1.1, 3.14159]
+      - [1.5, 1.6, 3.14159]
+      - [1.5, 4.0, 1.5708]
+      - [1.5, 6.5, 0.0]
+      - [8.5, 6.5, 0.0]
