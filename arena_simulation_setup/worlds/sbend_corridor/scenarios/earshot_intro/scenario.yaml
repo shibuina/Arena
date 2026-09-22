@@ -9,7 +9,7 @@ robots:
 static: []
 dynamic:
   - name: passer
-    model: female_adult_medical_01
+    model: casual_female_caucasian_young
     pose: [1.5, 3.2, 1.5708]
     agent: {agent_type: adult, desired_velocity: 1.2}
     waypoints:
