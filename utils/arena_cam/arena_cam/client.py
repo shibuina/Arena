@@ -267,7 +267,7 @@ class CamNode(ArenaMixinNode):
         self._beat_pub = self.create_publisher(LockstepHeartbeat, topic, 10)
         self._follower = True
         self._lockstep_time = self.sim_time
-        self.get_logger().info(f"riding active lockstep run: cam gated at {self._fps:g} fps, take start sim time {self._lockstep_time.nanoseconds / 1e9:.6f}")
+        self.get_logger().info(f"riding active lockstep run: cam gated at {self._fps:g} fps, take start sim time {self._lockstep_time.to_nanoseconds() / 1e9:.6f}")
         try:
             await self._timeline.run(self)
         finally:
@@ -287,7 +287,7 @@ class CamNode(ArenaMixinNode):
                 self.get_logger().error("sim hold timed out, nothing recorded")
                 return
             self._lockstep_time = await self._held_sim_time()
-            self.get_logger().info(f"take start sim time {self._lockstep_time.nanoseconds / 1e9:.6f}")
+            self.get_logger().info(f"take start sim time {self._lockstep_time.to_nanoseconds() / 1e9:.6f}")
             await self._timeline.run(self)
         finally:
             rel = LifecycleHold.Request()
