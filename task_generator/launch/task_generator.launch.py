@@ -114,6 +114,12 @@ def generate_launch_description() -> launch.LaunchDescription:
         default_value="",
         description="empty = adopt the runtime's sim; explicit [dummy, gazebo, isaac] must match the runtime",
     )
+    env_tf = LaunchArgument(
+        name="env.tf",
+        choices=["auto", "env", "global"],
+        default_value="auto",
+        description="tf topics: env = <env ns>/tf and <env ns>/tf_static, global = /tf and /tf_static, auto = global for sim isaac or robot.train, env otherwise.",
+    )
     # human/mobile defaults derive from arena's authoritative `sim` (the RegisterEnv
     # response, or the sim arg arena passes for managed envs). Empty here means
     # "use arena_sim". User can still override by passing e.g. human:=dummy explicitly.
@@ -351,6 +357,16 @@ def generate_launch_description() -> launch.LaunchDescription:
 
         atexit.register(_restore_terminal_titles)
 
+        env_tf_val = launch.utilities.perform_substitutions(context, launch.utilities.normalize_to_list_of_substitutions(env_tf.substitution))
+        if env_tf_val == "auto":
+            train_val = launch.utilities.perform_substitutions(context, launch.utilities.normalize_to_list_of_substitutions(train_mode.substitution))
+            env_tf_val = "global" if arena_sim == "isaac" or truthy(train_val) else "env"
+        if env_tf_val == "env" and arena_sim == "isaac":
+            raise RuntimeError("env.tf:=env is not supported with sim isaac, its robot odom tf is published on /tf")
+        env_ns = os.path.dirname(allocated_ns).strip("/")
+        tf_namespace = f"/{env_ns}" if env_tf_val == "env" and env_ns else ""
+        tf_remaps = [launch_ros.actions.SetRemap(topic, tf_namespace + topic) for topic in ("/tf", "/tf_static")] if tf_namespace else []
+
         human_val = launch.utilities.perform_substitutions(context, launch.utilities.normalize_to_list_of_substitutions(human.substitution)) or default_human(arena_sim)
         auditory_val = launch.utilities.perform_substitutions(context, launch.utilities.normalize_to_list_of_substitutions(auditory.substitution))
         hearing_val = launch.utilities.perform_substitutions(context, launch.utilities.normalize_to_list_of_substitutions(hearing.substitution))
@@ -560,6 +576,7 @@ def generate_launch_description() -> launch.LaunchDescription:
                     "train_mode": train_mode.param_value(bool),
                     "env_id": allocated_id,
                     "prefix": prefix_val,
+                    "tf_namespace": tf_namespace,
                 },
                 parameter_file.substitution,
                 {
@@ -611,7 +628,7 @@ def generate_launch_description() -> launch.LaunchDescription:
         )
 
         env_actions: list[launch.LaunchDescriptionEntity] = [
-            IsolatedGroupAction([human_launch, auditory_launch, hearing_launch, pedestrian_marker_node, task_generator_node, data_recorder_process]),
+            IsolatedGroupAction([*tf_remaps, human_launch, auditory_launch, hearing_launch, pedestrian_marker_node, task_generator_node, data_recorder_process]),
         ]
         if truthy(debug_flags.get("debug.aiomonitor")):
             env_actions.append(launch.actions.RegisterEventHandler(debug_window_cb))

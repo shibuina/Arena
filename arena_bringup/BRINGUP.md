@@ -176,6 +176,7 @@ arena launch \
 | Arg | Implication |
 |---|---|
 | `env.n:=3` | Three task-generator instances under `arena/env_0/task_generator_node`, `arena/env_1/...`, `arena/env_2/...`. `arena_node` self-orchestrates the fleet via `/arena/spawn_env`. |
+| `env.tf` | Omitted -> `auto`. Each env's tf traffic goes to `/arena/env_<N>/tf` and `/arena/env_<N>/tf_static` (`env`) or to the shared `/tf` and `/tf_static` (`global`). `auto` = `global` under `sim:=isaac` or `robot.train:=true`, `env` otherwise. Frame names are the same either way. The task generator reports the chosen namespace in its `tf_namespace` param, empty for `global`. |
 
 Slot positions are placed by the shelf packer in `arena_node` based on each env's `WorldExtent`; spacing is governed by the `slot_buffer` ROS parameter on `arena_node` (default 5 m).
 
