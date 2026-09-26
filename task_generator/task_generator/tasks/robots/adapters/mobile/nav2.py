@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from task_generator.tasks.robots.adapters import ResetContext
 
 _COSTMAP_TIMEOUT_S = 20.0
+_REDISPATCH_MIN_S = 2.0
 
 
 @AdapterMeta.attach(
@@ -73,6 +74,7 @@ class Nav2Adapter(MobileAdapter):
     def __init__(self, *args: object, **kwargs: object):
         super().__init__(*args, **kwargs)
         self._costmap_clients: dict[str, ClientWrapper] = {}
+        self._last_redispatch: float = -_REDISPATCH_MIN_S
 
     async def teardown(self) -> None:
         for cli in self._costmap_clients.values():
@@ -111,6 +113,17 @@ class Nav2Adapter(MobileAdapter):
         msg.header.stamp = robot.node.sim_time.to_msg()
         msg.pose = phase.pose.to_msg()
         return msg
+
+    def is_phase_done(self, phase: TaskPhase, robot: RobotManager) -> bool | None:
+        if phase.is_satisfied(robot):
+            return True
+        if not super().is_phase_done(phase, robot):
+            return False
+        now = robot.node.sim_time.to_seconds()
+        if now - self._last_redispatch >= _REDISPATCH_MIN_S:
+            self._last_redispatch = now
+            robot.node.event_loop.create_task(self.dispatch_phase(phase, robot))
+        return False
 
     async def wait_until_ready(
         self,
