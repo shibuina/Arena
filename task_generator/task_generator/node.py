@@ -1280,6 +1280,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
                 manager.name,
                 (pose.position.x, pose.position.y),
                 (goal.position.x, goal.position.y),
+                self.sim_time.to_seconds(),
             )
         best = self._goal_progress.least_progress()
         if best is None:
@@ -1298,6 +1299,10 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
                 if fut is None or fut.done():
                     continue
                 self._sample_goal_progress()
+                stall_limit = self.conf.Robot.NO_PROGRESS_TIMEOUT.value
+                if self._goal_progress.longest_stall(self.sim_time.to_seconds(), self.conf.Robot.GOAL_TOLERANCE_RADIUS.value) > stall_limit:
+                    self.fail_episode("no progress")
+                    continue
                 if not await self._task.is_done:
                     continue
                 if self._task.abort_reason is not None:

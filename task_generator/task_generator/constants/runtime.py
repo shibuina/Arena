@@ -83,6 +83,12 @@ def Configuration(server: ROSParamServer) -> type:
                 parse=_positive_or_inf,
             )
 
+            NO_PROGRESS_TIMEOUT = server.ROSParam[float](
+                'no_progress_timeout',
+                -1,
+                parse=_positive_or_inf,
+            )
+
             READY_TIMEOUT = server.ROSParam[float](
                 'robot.ready_timeout',
                 -1,
