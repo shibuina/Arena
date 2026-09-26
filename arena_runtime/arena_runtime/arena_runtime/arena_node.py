@@ -190,6 +190,7 @@ class ArenaNode(ArenaMixinNode, rclpy.lifecycle.LifecycleNode):
         slot_buffer = self.rosparam[float].get("slot_buffer", 5.0)
 
         self._env_registry = EnvRegistry(slot_buffer=slot_buffer)
+        self._pending_cleanup: list[str] = []
 
         self._pub_paused = self.create_publisher(
             Bool,
@@ -533,11 +534,14 @@ class ArenaNode(ArenaMixinNode, rclpy.lifecycle.LifecycleNode):
                 await env.dispose(self, grace_seconds=0.0)
                 await asyncio.sleep(2.0)  # give external env time to observe shutdown_request
 
-        try:
-            await self._lifecycle.cleanup_namespace(self._lifecycle.env_prefix(env_id))
-        except SimUnavailable as e:
-            self.get_logger().warning(f"cleanup_namespace env_{env_id} failed: {e!r}")
-            await self._lifecycle.record_failure(f"cleanup_namespace: {e!r}")
+        prefixes = [*self._pending_cleanup, self._lifecycle.env_prefix(env_id)]
+        self._pending_cleanup = []
+        for prefix in prefixes:
+            try:
+                await self._lifecycle.cleanup_namespace(prefix)
+            except SimUnavailable as e:
+                self.get_logger().warning(f"cleanup_namespace {prefix!r} failed, retrying at the next eviction: {e!r}")
+                self._pending_cleanup.append(prefix)
 
         self._env_registry.complete_eviction(env_id)
         self._publish_envs()
