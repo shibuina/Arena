@@ -27,6 +27,8 @@ if TYPE_CHECKING:
     from task_generator.shared import Pose
     from task_generator.tasks.robots.adapters import ResetContext
 
+_COSTMAP_TIMEOUT_S = 20.0
+
 
 @AdapterMeta.attach(
     accepts={TaskKind.GOTO_POSE},
@@ -167,7 +169,7 @@ class Nav2Adapter(MobileAdapter):
             req = ClearCostmapAroundRobot.Request()
             req.reset_distance = reset_distance
 
-        state = await robot.node.get_lifecycle_state_async(node_name)
+        state = await robot.node.get_lifecycle_state_async(node_name, timeout=_COSTMAP_TIMEOUT_S)
         if state.id != lifecycle_msgs.msg.State.PRIMARY_STATE_ACTIVE:
             return False
 
@@ -175,9 +177,10 @@ class Nav2Adapter(MobileAdapter):
         if cli is None:
             cli = robot.node.create_client_wrapper(srv_type, srv_name)
             self._costmap_clients[srv_name] = cli
-        await cli.ensure()
+        if not await cli.ensure(timeout_sec=_COSTMAP_TIMEOUT_S):
+            raise TimeoutError(f"{srv_name} not available after {_COSTMAP_TIMEOUT_S}s")
 
-        result = await cli.call_timeout(req)
+        result = await cli.call_timeout(req, timeout_sec=_COSTMAP_TIMEOUT_S)
         if result is None:
             robot.node.get_logger().error(f"service call failed for {srv_name}")
             return False
