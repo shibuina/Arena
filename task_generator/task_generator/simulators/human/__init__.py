@@ -12,6 +12,7 @@ import attrs
 import rclpy.publisher
 import rclpy.qos
 from ament_index_python.packages import get_package_share_directory
+from arena_auditory.qos_profiles import continuous_audio_qos
 from arena_people_msgs.msg import Pedestrian, Pedestrians
 from arena_people_msgs.srv import MovePedestrians
 from arena_rclpy_mixins.Async import ClientWrapper
@@ -29,7 +30,6 @@ from rcl_interfaces.msg import Parameter as ParameterMsg
 from task_generator_msgs.msg import ContinuousHeardSoundState
 from visualization_msgs.msg import MarkerArray
 
-from task_generator.auditory.qos_profiles import continuous_audio_qos
 from task_generator.constants import Constants
 from task_generator.manager.realizer import Realizer
 from task_generator.shared import Door, DynamicObstacle, Obstacle, Orientation, Pose, Region, Robot, Wall

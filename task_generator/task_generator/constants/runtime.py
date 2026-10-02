@@ -22,6 +22,8 @@ def Configuration(server: ROSParamServer) -> type:
 
             HUMAN = server.ROSParam[Constants.HumanSimulator]('human', Constants.HumanSimulator.DUMMY.value, parse=Constants.HumanSimulator)
 
+            AUDITORY = server.ROSParam[Constants.AuditorySimulator]('auditory', Constants.AuditorySimulator.NONE.value, parse=Constants.AuditorySimulator)
+
             WORLD = server.ROSParam[str](
                 'world',
                 type_=rclpy.Parameter.Type.STRING,
@@ -95,6 +97,11 @@ def Configuration(server: ROSParamServer) -> type:
             ARM_ADAPTER = server.ROSParam[str](
                 'robot.arm_adapter',
                 'moveit',
+            )
+
+            HEARING = server.ROSParam[str](
+                'robot.hearing',
+                'none',
             )
 
         class TaskMode:

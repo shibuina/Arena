@@ -28,6 +28,7 @@ import tf2_ros
 from arena_rclpy_mixins import ArenaMixinNode
 from arena_rclpy_mixins.Async import ClientWrapper
 from arena_rclpy_mixins.shared import Namespace
+from arena_rclpy_mixins.Time import Time
 from arena_robots.Sensor import SensorType
 from arena_runtime.sim import BaseSim, SimulatorRegistry
 from arena_simulation_setup.tree.World.Scenario import EpisodeCondition, TimelineEntry
@@ -51,6 +52,7 @@ from task_generator.manager.world_manager.world_manager_ros import (
     WorldManagerROS as WorldManager,
 )
 from task_generator.shared import Orientation, Pose, Position
+from task_generator.simulators.auditory import AuditorySimulatorRegistry, BaseAuditorySimulator
 from task_generator.simulators.human import BaseHumanSimulator, HumanSimulatorRegistry
 from task_generator.tasks import identifier_to_available, identifier_to_available_async
 from task_generator.tasks.obstacles import ObstacleKind
@@ -97,6 +99,7 @@ class EpisodeRecord:
     goal_dist_min: float = 0.0
     path_length: float = 0.0
     integrity: bool = True
+    start_time: Time = attrs.Factory(Time)
 
 
 @attrs.define
@@ -135,6 +138,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
 
     _world_manager: WorldManager
     _human_simulator: BaseHumanSimulator
+    _auditory_simulator: BaseAuditorySimulator
     _environment_manager: EnvironmentManager
     _robots_manager: RobotsManager | None = None
     _simulator: BaseSim
@@ -397,7 +401,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             )
 
             await self._world_manager.sync()
-            if flag_enabled(self, "debug", "map_server"):
+            if flag_enabled(self, "debug", "map_server") or self._auditory_simulator.requires_map_server:
                 await self._world_manager.require_map_server()
             await self._robots_manager.launch_pending()
             self._publish_viz_manifest()
@@ -503,6 +507,13 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             realizer=realizer,
         )
 
+        self._logger.info("Setting up auditory simulator")
+        self._auditory_simulator = await AuditorySimulatorRegistry.get(
+            self.conf.Arena.AUDITORY.value,
+            node=self,
+            namespace=self._namespace,
+        )
+
         self._logger.info("Setting up environment manager")
         self._environment_manager = EnvironmentManager(
             node=self,
@@ -561,6 +572,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
         msg.goal_dist_min = record.goal_dist_min
         msg.path_length = record.path_length
         msg.integrity = record.integrity
+        msg.start_time = record.start_time.to_msg()
         msg.conditions = json.dumps([c.serialize() for c in self._episode_conditions])
         return msg
 
@@ -1011,6 +1023,23 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
                     group="Sound Propagation",
                 )
             )
+        if self.conf.Robot.HEARING.value != 'none':
+            for name, topic, topic_type, kind, style in (
+                ("Belief", f"{env_ns}/hearing/belief_grid", "nav_msgs/OccupancyGrid", DisplayKind.MAP, StyleSpec(alpha=0.6, extra={"rviz": {"Color Scheme": "costmap", "Durability Policy": "Volatile"}}).to_json()),
+                ("Speed Mask", f"{env_ns}/hearing/speed_filter_mask", "nav_msgs/OccupancyGrid", DisplayKind.MAP, StyleSpec(alpha=0.4, enabled=False, extra={"rviz": {"Color Scheme": "costmap"}}).to_json()),
+                ("Wedges", f"{env_ns}/hearing/belief_wedges", "visualization_msgs/MarkerArray", DisplayKind.MARKER_ARRAY, StyleSpec(enabled=True).to_json()),
+            ):
+                env_displays.append(
+                    AdapterDisplay(
+                        name=name,
+                        topic=topic,
+                        topic_type=topic_type,
+                        kind=kind,
+                        style_json=style,
+                        topic_must_exist=False,
+                        group="Hearing",
+                    )
+                )
         entries: list[AdapterEntry] = []
         for mgr in self._robots_manager.managers.values():
             ns_value = str(mgr.namespace)
@@ -1210,6 +1239,9 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
 
             self._pub_state_world.publish(String(data=record.world))
 
+            # This is the first instant at which the reset world, robot and
+            # pedestrians are all committed. Dataset export clips audio to it.
+            record.start_time = self.sim_time
             record.outcome_state = task_generator_msgs.action.RunEpisode.Result.RUNNING
             self._publish_episode_state()
 
