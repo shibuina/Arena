@@ -73,6 +73,7 @@ dependencies = [
     "pyroomacoustics>=0.10.1",
     "arena_planners",
     "arena_cli",
+    "torch-geometric>=2.8.0.post1",
 ]
 
 [build-system]
