@@ -91,7 +91,8 @@ _arena_venv_provision(){
     (
         cd "$ARENA_DIR" || exit 1
         uv venv "$ARENA_VENV_DIR" --allow-existing --system-site-packages && \
-        UV_PROJECT_ENVIRONMENT="$ARENA_VENV_DIR" uv sync --inexact --project "$ARENA_DIR" "$@" && \
+        python3 "$ARENA_DIR/_meta/tools/uv_workspace.py" compose && \
+        UV_PROJECT_ENVIRONMENT="$ARENA_VENV_DIR" uv sync --inexact --all-packages --project "$ARENA_DIR/.uv-workspace" "$@" && \
         touch "$ARENA_VENV_DIR/.installed"
     )
 }

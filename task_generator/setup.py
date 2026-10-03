@@ -12,7 +12,6 @@ def existing(*patterns):
 
 setup(
     name=package_name,
-    version='0.0.0',
     packages=find_packages(
         where='.',
         include=[f'{package_name}*']
@@ -36,10 +35,6 @@ setup(
         (os.path.join('share', package_name, 'simulators', 'human', 'animations'),
          existing('task_generator/simulators/human/animations/*.npy', 'task_generator/simulators/human/animations/*.npz', 'task_generator/simulators/human/animations/*.yaml')),
     ],
-    install_requires=['setuptools'],
-    extras_require={
-        'test': ['pytest>=7', 'hypothesis>=6'],
-    },
     zip_safe=True,
     maintainer='Name',
     maintainer_email='your@email.com',

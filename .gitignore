@@ -86,3 +86,5 @@ htmlcov/
 /arena_simulation_setup/acoustics/generated/
 /data/audio_train_set/
 /data/audio_train_set_test/
+
+/.uv-workspace/

@@ -11,3 +11,15 @@ repos:
         language: python
         pass_filenames: false
         always_run: true
+      - id: uv-workspace-lock
+        name: relock uv workspace
+        entry: python _meta/tools/uv_workspace.py hook
+        language: python
+        files: (^|/)(pyproject\.toml|setup\.py)$
+        pass_filenames: false
+      - id: uv-workspace
+        name: check uv workspace manifests
+        entry: python _meta/tools/uv_workspace.py check
+        language: python
+        pass_filenames: false
+        always_run: true

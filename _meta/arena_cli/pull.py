@@ -92,7 +92,10 @@ def pull_main(argv: list[str]) -> int:
 
         if do_python:
             print("updating python deps...")
-            rc = subprocess.run(["uv", "sync", "--inexact", "--active"], env=env, check=False).returncode
+            rc = subprocess.run([sys.executable, os.path.join(arena_dir, "_meta", "tools", "uv_workspace.py"), "compose"], env=env, check=False).returncode
+            if rc:
+                return rc
+            rc = subprocess.run(["uv", "sync", "--inexact", "--all-packages", "--active", "--project", os.path.join(arena_dir, ".uv-workspace")], env=env, check=False).returncode
             if rc:
                 return rc
 
