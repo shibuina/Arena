@@ -238,11 +238,11 @@ def build_tools_list() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "timeout": {"type": "number", "description": "Episode timeout in seconds."},
-                    "goal_tolerance_radius": {"type": "number", "description": "Distance from goal within which the episode is considered successful."},
-                    "robot_safe_dist": {"type": "number", "description": "Minimum safe distance between robot and obstacles."},
-                    "auto_reset": {"type": "boolean", "description": "When true the node auto-advances on episode terminal."},
-                    "episodes": {"type": "integer", "description": "Number of episodes to run before shutdown. -1 = unlimited."},
+                    "task.episode.timeout": {"type": "number", "description": "Episode timeout in seconds."},
+                    "task.episode.goto_pose.tolerance.radius": {"type": "number", "description": "Distance from goal within which the episode is considered successful."},
+                    "task.episode.spawn.robot_clearance": {"type": "number", "description": "Minimum safe distance between robot and obstacles."},
+                    "task.episode.auto_reset": {"type": "boolean", "description": "When true the node auto-advances on episode terminal."},
+                    "task.episode.count": {"type": "integer", "description": "Number of episodes to run before shutdown. -1 = unlimited."},
                 },
             },
         ),

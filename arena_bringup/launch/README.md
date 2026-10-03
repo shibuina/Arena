@@ -39,8 +39,8 @@ Old flat names (`tm_robots`, `mobile`, `env_n`, ...) still work with a warning, 
 | `task.modules` | string | `rviz_ui` | Comma-separated task modules to load |
 | `task.scenario` | string | `` (empty) | Sets the `task.scenario.file` ROS param (empty = use the `task.params` default) |
 | `task.params` | string | `configs/task_generator.yaml` | Task-generator ROS parameter YAML |
-| `task.episodes` | int string | `-1` | Stop the env after N episodes (`-1` = run forever) |
-| `task.fail_on_collision` | bool string | `false` | Abort the episode as FAILED on robot footprint contact |
+| `task.episode.count` | int string | `-1` | Stop the env after N episodes (`-1` = run forever) |
+| `task.episode.fail_on_collision` | bool string | `false` | Abort the episode as FAILED on robot footprint contact |
 | `world` | string | `map_empty` | World name; resolved under `arena_simulation_setup/worlds/` |
 | `auditory` | `none` \| `arena` | `none` | Auditory pipeline: sound propagation, robot hearing, robot and human sound emission. Sub-keys below take effect only when not `none`; see [arena_auditory/README.md](../../arena_auditory/README.md). |
 | `auditory.playback` | string | `auto` | PortAudio output device for workstation playback; `auto` tries `pulse`, `pipewire`, `default`, then the PortAudio default, `none` starts no playback nodes. |
@@ -56,7 +56,7 @@ Old flat names (`tm_robots`, `mobile`, `env_n`, ...) still work with a warning, 
 | `env.n` | int string | `1` | Number of task-generator environments `arena launch` will spawn this invocation. Additive: if the runtime already has envs, these add to them rather than replace. |
 | `env_d` | float string | `50` | Spacing (metres) between environments on the snail grid |
 | `debug` | bool string | `False` | Enable debug features |
-| `task.auto_reset` | bool expression | `true` | `true` = standalone: node auto-advances episodes; `false` = managed: external controller drives resets via `lifecycle/reset_episode` |
+| `task.episode.auto_reset` | bool expression | `true` | `true` = standalone: node auto-advances episodes; `false` = managed: external controller drives resets via `lifecycle/reset_episode` |
 | `optim` | comma-separated tokens | `$ARENA_OPTIM` or `` (empty) | Strip matching `<sensor>` blocks from each robot's URDF after xacro expansion (affects both Gazebo and Isaac via [`urdf.py`](../../arena_simulation_setup/src/arena_simulation_setup/utils/models/urdf.py)). Tokens: `no_camera` (strips `camera`/`depth`/`rgbd_camera`), `no_lidar` (strips `ray`/`gpu_lidar`). Unknown tokens warn and are ignored. Default reads `$ARENA_OPTIM` so you can set `export ARENA_OPTIM=no_camera,no_lidar` once per shell; CLI `optim:=...` overrides. |
 
 ## Log level

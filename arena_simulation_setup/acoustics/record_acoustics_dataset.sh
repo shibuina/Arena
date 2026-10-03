@@ -512,7 +512,7 @@ for scenario_file in "${SCENARIO_FILES[@]}"; do
         # older installed task configurations from restoring their "default".
         "task.scenario.file:=${scenario_name}"
         'task.scenario.linger_after_completion:=true'
-        'task.auto_reset:=false' 'env.n:=1' "${display_args[@]}"
+        'task.episode.auto_reset:=false' 'env.n:=1' "${display_args[@]}"
         "record.dir:=${run_arena}" 'record.auto:=true'
         "${EXTRA_LAUNCH_ARGS[@]}"
     )

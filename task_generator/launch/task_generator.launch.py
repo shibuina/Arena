@@ -25,6 +25,7 @@ from launch.actions import (
 from launch.event_handlers import OnProcessExit
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
+from task_generator.constants.runtime import EPISODE_PARAMS
 from task_generator.utils.flags import expand_flag_namespace, truthy
 
 _REGISTER_RETRY_SEC = 1.0
@@ -260,11 +261,8 @@ def generate_launch_description() -> launch.LaunchDescription:
         default_value="",
         description="Task config file (task_modes list). Overrides task.robots. Bare names resolve under arena_bringup/configs/tasks.",
     )
-    episodes = LaunchArgument(
-        name='task.episodes',
-        default_value='-1',
-        description='Stop the env after N episodes (-1 = run forever).',
-    )
+    for name, description in EPISODE_PARAMS.items():
+        LaunchArgument(name=name, default_value='', description=f'{description} Empty = node default.')
     scenario_file = LaunchArgument(
         name='task.scenario',
         default_value='',
@@ -320,16 +318,6 @@ def generate_launch_description() -> launch.LaunchDescription:
         name="debug",
         default_value="",
         description="comma list of debug tokens (e.g. aiomonitor,map_server); also debug.<token>:=true",
-    )
-    auto_reset = LaunchArgument(
-        name="task.auto_reset",
-        default_value="true",
-        description=("true = standalone: node auto-advances episodes. false = managed: external controller drives resets via lifecycle/reset_episode."),
-    )
-    fail_on_collision = LaunchArgument(
-        name="task.fail_on_collision",
-        default_value="false",
-        description="true = abort the episode (FAILED) when the robot footprint contacts a wall, static obstacle, or pedestrian.",
     )
     train_mode = LaunchArgument(name="robot.train", default_value="false")
     parameter_file = LaunchArgument(
@@ -501,6 +489,10 @@ def generate_launch_description() -> launch.LaunchDescription:
         declared = {a.name for a in ld_items}
         dotted_overrides: dict[str, object] = {}
         for k, v in context.launch_configurations.items():
+            if k in EPISODE_PARAMS:
+                if v:
+                    dotted_overrides[k] = yaml.safe_load(v)
+                continue
             if k in declared:
                 continue
             if k.startswith(("task.", "robot.")):
@@ -571,8 +563,6 @@ def generate_launch_description() -> launch.LaunchDescription:
                     "tm_modules": tm_modules_val,
                     **world.str_param,
                     "static_sounds": auditory_static_sounds.param_value(str),
-                    "auto_reset": auto_reset.param_value(bool),
-                    "fail_on_collision": fail_on_collision.param_value(bool),
                     "train_mode": train_mode.param_value(bool),
                     "env_id": allocated_id,
                     "prefix": prefix_val,
@@ -580,7 +570,6 @@ def generate_launch_description() -> launch.LaunchDescription:
                 },
                 parameter_file.substitution,
                 {
-                    "episodes": episodes.param_value(int),
                     "task.scenario.linger_after_completion": scenario_linger.param_value(bool),
                 },
                 *overrides_files,

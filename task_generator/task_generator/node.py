@@ -44,7 +44,7 @@ from std_msgs.msg import Bool, Int16, String
 from task_generator_msgs.msg import AdapterDisplay, AdapterEntry, AdapterVizManifest
 
 from task_generator.constants import Constants
-from task_generator.constants.runtime import Configuration
+from task_generator.constants.runtime import Configuration, migrate_deprecated_params
 from task_generator.manager.environment_manager import EnvironmentManager
 from task_generator.manager.realizer import Realizer
 from task_generator.manager.robot_manager import RobotsManager
@@ -158,6 +158,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
 
     def __init__(self):
         super().__init__("task_generator", automatically_declare_parameters_from_overrides=True)
+        migrate_deprecated_params(self)
         self.conf = Configuration(self)
 
         self._namespace = Namespace(self.get_namespace())
@@ -179,14 +180,14 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
         self._prespawn_offset = (0.0, 0.0)
 
         self._declare_mutable_param(
-            "auto_reset",
+            "task.episode.auto_reset",
             True,
             ParameterDescriptor(
                 description=("true = standalone: node auto-advances episodes. false = managed: external controller drives resets."),
             ),
         )
         self._declare_mutable_param(
-            "fail_on_collision",
+            "task.episode.fail_on_collision",
             False,
             ParameterDescriptor(
                 description=("true = abort the episode as FAILED when the robot footprint contacts a wall, static obstacle, or pedestrian."),
@@ -421,7 +422,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
 
         def _start() -> None:
             self._check_status_task = asyncio.create_task(self._termination_watcher())
-            if self.rosparam[bool].get_unsafe("auto_reset"):
+            if self.rosparam[bool].get_unsafe("task.episode.auto_reset"):
                 self._spawn_episode()
 
         self.event_loop.call_soon_threadsafe(_start)
@@ -1803,7 +1804,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
 
         service_driven = outcome_state == task_generator_msgs.action.RunEpisode.Result.SKIPPED and outcome_info == "reset"
         fatal = outcome_state == task_generator_msgs.action.RunEpisode.Result.FATAL
-        if respawn and rclpy.ok() and not fatal and (service_driven or self.rosparam[bool].get_unsafe("auto_reset")):
+        if respawn and rclpy.ok() and not fatal and (service_driven or self.rosparam[bool].get_unsafe("task.episode.auto_reset")):
             self._spawn_episode()
 
         return result

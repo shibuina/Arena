@@ -343,7 +343,7 @@ log_level:=debug     # verbose output from all nodes
 use_sim_time:=false  # real-time clock (unusual, only for real robots)
 complexity:=2        # AMCL (position unknown); 3 = SLAM
 record.dir:=/tmp/arena_run  # enable data recording (record.auto:=false keeps the recorder off)
-task.fail_on_collision:=true  # abort the episode as FAILED when the robot footprint contacts a wall, static obstacle, or pedestrian (default false)
+task.episode.fail_on_collision:=true  # abort the episode as FAILED when the robot footprint contacts a wall, static obstacle, or pedestrian (default false)
 ```
 
 ### sim:=
@@ -408,7 +408,7 @@ shapes of argument:
 | `robot.<cap>.<key>:=<val>` | `robot.mobile.local_planner:=teb`, `robot.mobile.planner:=drlvo` | `robot.<cap>.<key>` | Override a value from `caps/<cap>.yaml`. |
 | `<adapter-kwarg>:=<val>` | `global_planner:=smac`, `global_planner:=nav2/navfn` | `robot.<cap>.<key>` (via the adapter's launch file) | Adapter-internal launch kwargs (nav2 planner names, or the `<family>/<kind>` form consumed by the `drl` adapter). |
 
-One robot-level timeout also takes the `robot.` prefix: `robot.ready_timeout`
+One adapter-readiness timeout lives under the task namespace: `task.episode.timeout.robot_ready`
 (adapter readiness, default unbounded, `-1` means unbounded).
 
 The cap-scoped form is the recommended style because it's self-documenting and
@@ -474,9 +474,12 @@ given) and will be removed in a future release.
 | `task_config` | `task.config` |
 | `scenario_file` | `task.scenario` |
 | `parameter_file` | `task.params` |
-| `episodes` | `task.episodes` |
-| `auto_reset` | `task.auto_reset` |
-| `fail_on_collision` | `task.fail_on_collision` |
+| `episodes` | `task.episode.count` |
+| `auto_reset` | `task.episode.auto_reset` |
+| `fail_on_collision` | `task.episode.fail_on_collision` |
+| `task.episodes` | `task.episode.count` |
+| `task.auto_reset` | `task.episode.auto_reset` |
+| `task.fail_on_collision` | `task.episode.fail_on_collision` |
 | `mobile`, `mobile.<key>` | `robot.mobile`, `robot.mobile.<key>` |
 | `arm`, `arm.<key>` | `robot.arm`, `robot.arm.<key>` |
 | `planner` | `robot.planner` |
