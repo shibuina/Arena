@@ -190,6 +190,7 @@ mkdir -p "$ARENA_WS_DIR/install"
 mkdir -p "$ARENA_WS_DIR/log"
 mkdir -p "$ARENA_WS_DIR/.uv-python"
 mkdir -p "$ARENA_WS_DIR/.uv-cache"
+mkdir -p "$ARENA_WS_DIR"/.isaac-cache/{kit,ov,computecache}
 
 if [ ! -f "$ARENA_WS_DIR/.env" ] ; then
     touch "$ARENA_WS_DIR/.env"
