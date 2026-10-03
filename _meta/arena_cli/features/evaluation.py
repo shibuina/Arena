@@ -25,9 +25,15 @@ def _update() -> int:
 
 
 def benchmark(argv: list[str]) -> None:
-    """run a benchmark suite (ros2 run arena_evaluation benchmark)"""
+    """run a benchmark suite (ros2 run arena_evaluation benchmark), `--lanes N` runs it as one run across N lanes, each in its own fork"""
+    from arena_cli import fork
+
     common._reg_require(NAME)
-    common._exec("ros2", "run", "arena_evaluation", "benchmark", *argv)
+    n, rest = fork.split_lanes(argv)
+    if n is None:
+        common._exec("ros2", "run", "arena_evaluation", "benchmark", *rest)
+    else:
+        fork.run_shared(n, rest)
 
 
 def list_(argv: list[str]) -> None:

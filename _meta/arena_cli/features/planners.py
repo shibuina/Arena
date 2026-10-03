@@ -23,7 +23,7 @@ DESCRIPTION = (
     "  check [--all]        verify planner submodules are initialized\n"
     "  update               refresh initialized planner submodules\n"
     "  uninstall            deinit all planner submodules\n"
-    "  test [--preflight] <name...|--all>  lockstep soak, or a short start-and-drive check, via the benchmark runner (needs the evaluation feature)"
+    "  test [--preflight] [--lanes N] <name...|--all>  lockstep soak, or a short start-and-drive check, via the benchmark runner, over N lanes with --lanes, each in its own fork (needs the evaluation feature)"
 )
 
 
@@ -289,7 +289,7 @@ def _contestants(names: list[str]) -> list[dict]:
 
 
 _ALL = Flags({"--all": "every planner"})
-_PREFLIGHT = Flags({"--preflight": "short start-and-drive check instead of the soak"})
+_PREFLIGHT = Flags({"--preflight": "short start-and-drive check instead of the soak", "--lanes": "spread the planners over N lanes, each in its own fork"})
 _SELECT = Union(Static(_names), _ALL)
 
 
@@ -380,14 +380,19 @@ def install(argv: list[str]) -> None:
 def test(argv: list[str]) -> None:
     """Lockstep soak of planners via the benchmark runner.
 
-    `arena planners test [--preflight] <name...|--all> [sim:=gazebo] [KEY:=VALUE ...]`
+    `arena planners test [--preflight] [--lanes N] <name...|--all> [sim:=gazebo] [KEY:=VALUE ...]`
     Soak: one crowded lockstep stage per planner, stall/rtf/beat table, exit 3 on a stall, 4 when the runner hung.
     `--preflight`: two episodes of map_empty's `preflight` scenario, verdict wedged/weak/ok per planner, exit 3 on either.
-    `--all`: every initialized planner. Other tokens forward to the runner. Needs the evaluation feature.
+    `--all`: every initialized planner. `--lanes N`: spread the planners over N lanes, each in its own fork.
+    Other tokens forward to the runner. Needs the evaluation feature.
     """
     import json
 
+    from arena_cli import fork
+    from arena_cli.features import evaluation
+
     common._reg_require("evaluation")
+    lanes, argv = fork.split_lanes(argv)
     preflight = "--preflight" in argv
     names = [a for a in argv if ":=" not in a and not a.startswith("-")]
     rest = [a for a in argv if (":=" in a or a.startswith("-")) and a not in ("--all", "--preflight")]
@@ -405,7 +410,7 @@ def test(argv: list[str]) -> None:
     if preflight:
         suite = {**_SOAK_SUITE, "launch": {**_SOAK_SUITE["launch"], "env.bootstrap_timeout": 90, "robot.mobile.deadline": 30}, "stages": [_PREFLIGHT_STAGE]}
         verdict = ["--retries", "0", "--strict", "--efficacy", "0.5", "--spawn-budget", "120"]
-    common._exec("ros2", "run", "arena_evaluation", "benchmark", "--suite", json.dumps(suite), "--contest", contest, *verdict, *rest)
+    evaluation.benchmark(["--suite", json.dumps(suite), "--contest", contest, *verdict, *rest, *(["--lanes", str(lanes)] if lanes else [])])
 
 
 def uninstall(argv: list[str]) -> None:

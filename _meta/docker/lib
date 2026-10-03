@@ -8,9 +8,9 @@ arena_podman(){
     { docker --version; arena_docker version --format '{{range .Server.Components}}{{.Name}} {{end}}'; } 2>/dev/null | grep -qi podman
 }
 
-ARENA_PROJECT_NAME="arena-$(basename "${HOST_ARENA_WS_DIR:-$ARENA_WS_DIR}")"
-export ARENA_PROJECT_NAME
-export ARENA_IMAGE_TAG="$ARENA_PROJECT_NAME"
+ARENA_IMAGE_TAG="arena-$(basename "${HOST_ARENA_WS_DIR:-$ARENA_WS_DIR}")"
+export ARENA_IMAGE_TAG
+export ARENA_PROJECT_NAME="$ARENA_IMAGE_TAG${ARENA_FORK:+-$ARENA_FORK}"
 export ARENA_IMAGE="arena:${ARENA_IMAGE_TAG}"
 arena_podman && export ARENA_IMAGE="localhost/$ARENA_IMAGE"
 
@@ -56,7 +56,7 @@ arena_gpu(){
 # ${ARENA_WS_DIR} client-side, $HOST_ARENA_WS_DIR for volume sources
 _arena_compose_file(){
     local f
-    for f in "$1" ${podman:+"${1%.yaml}.podman.yaml"}; do
+    for f in "$1" ${podman:+"${1%.yaml}.podman.yaml"} ${ARENA_RELEASE:+"${1%.yaml}.fork.yaml"}; do
         [ -f "$f" ] || continue
         files="${files:+$files:}$f"
     done

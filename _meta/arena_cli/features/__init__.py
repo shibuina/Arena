@@ -48,9 +48,9 @@ def build(services: list[str]) -> int:
     return _lib("arena_compose_build", *services).returncode
 
 
-def _lib(fn: str, *args: str, capture: bool = False) -> subprocess.CompletedProcess[str]:
+def _lib(fn: str, *args: str, capture: bool = False, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     """Run a bash function exported by _meta/docker/lib."""
-    return subprocess.run(["bash", "-c", f'{fn} "$@"', fn, *args], capture_output=capture, text=True, check=False)
+    return subprocess.run(["bash", "-c", f'{fn} "$@"', fn, *args], capture_output=capture, text=True, check=False, env=env)
 
 
 def engine(args: list[str]) -> int:
@@ -70,9 +70,9 @@ def containers(service: str, all_states: bool = False) -> list[str]:
     return _lib("arena_containers", *flags, service, capture=True).stdout.split()
 
 
-def wait_healthy(*services: str) -> int:
+def wait_healthy(*services: str, env: dict[str, str] | None = None) -> int:
     """Block until each service is healthy or running without a healthcheck, 1 once one exits."""
-    return _lib("arena_container_wait", *services).returncode
+    return _lib("arena_container_wait", *services, env=env).returncode
 
 
 def remove(service: str) -> int:
