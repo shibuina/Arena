@@ -71,6 +71,7 @@ def _recursive_mtime(path: str) -> int:
         return -1
     entries = [path]
     for root, dirs, files in os.walk(path):
+        dirs[:] = [d for d in dirs if d not in ("__pycache__", ".git")]
         for name in dirs + files:
             entries.append(os.path.join(root, name))
     best = -1.0
@@ -150,10 +151,11 @@ def build_main(argv: list[str]) -> int:
             if not up_to_date:
                 build_packages.append(package)
 
-        # an empty --packages-above is falsy to colcon and drops the filter entirely
-        selection = ["--packages-above", *build_packages] if build_packages else ["--packages-select"]
-        display_args += selection
-        exec_args += selection
+        if not build_packages:
+            print("BUILDING: nothing stale, every package is up to date")
+            return 0
+        display_args += ["--packages-above", *build_packages]
+        exec_args += ["--packages-above", *build_packages]
 
     print(f"BUILDING: colcon build {' '.join(display_args)} {' '.join(args)}")
 

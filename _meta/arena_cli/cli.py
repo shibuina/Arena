@@ -8,6 +8,7 @@ from types import ModuleType
 from arena_cli import asset as _asset_mod
 from arena_cli import complete as _complete
 from arena_cli import features as _features
+from arena_cli import fork as _fork_mod
 from arena_cli import human as _human_mod
 from arena_cli import robot as _robot_mod
 from arena_cli import settings as _settings_mod
@@ -36,7 +37,7 @@ the underlying launch file or tool."""
 SECTIONS = {
     "Simulation": ["runtime", "env", "viz", "cleanup", "launch", "train", "demo", "lockstep"],
     "Attach": ["human", "robot", "cam"],
-    "Workspace": ["build", "rebuild", "test", "deps", "update", "preload", "uninstall", "settings"],
+    "Workspace": ["build", "rebuild", "test", "deps", "update", "preload", "uninstall", "settings", "fork"],
     "Data": ["asset"],
     "Features": ["feature", "registry"],
     "Shell": ["deactivate", "resource", "repair"],
@@ -222,6 +223,15 @@ _register(
         passthrough=True,
         help_text=f"{_settings_mod.DESCRIPTION}\n\nCommands:\n{_listing([(v.name, v.short) for v in _settings_mod.COMMANDS.values()])}",
         complete=Sub(_settings_mod.COMMANDS),
+    )
+)
+_register(
+    make_verb(
+        "fork",
+        lambda args: _group_cmd("arena fork", _fork_mod.DESCRIPTION, _fork_mod.COMMANDS, args) if args and (args[0] in _fork_mod.COMMANDS or args[0] in ("-h", "--help")) else _fork_mod.start(args),
+        passthrough=True,
+        help_text=f"{_fork_mod.DESCRIPTION}\n\nCommands:\n{_listing([(v.name, v.short) for v in _fork_mod.COMMANDS.values()])}",
+        complete=Sub(_fork_mod.COMMANDS),
     )
 )
 _register(_viz_mod.VERB)

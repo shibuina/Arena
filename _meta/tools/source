@@ -74,6 +74,9 @@ if [ -f "$ARENA_WS_DIR/.env" ] ; then
     . "$ARENA_WS_DIR/.env"
     set +a
 fi
+if [ -n "${ARENA_FORK_DOMAIN_ID:-}" ] ; then
+    export ROS_DOMAIN_ID="$ARENA_FORK_DOMAIN_ID" GZ_PARTITION="arena-$ARENA_FORK_DOMAIN_ID"
+fi
 
 # ARENA_NET scopes ROS 2 discovery: local = loopback only, lan = every interface
 case "${ARENA_NET:-local}" in

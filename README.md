@@ -72,6 +72,20 @@ Place your trained agent folder inside `Arena/arena_training/agents/<agent_name>
 ### arena_planners bridge
 For research planners (DRL-VO, CrowdNav, ...) where the policy lives in its own venv, use `robot.mobile:=drl robot.mobile.planner:=<name>`. Install a planner with `arena feature planners add <name>`. The [arena_planners](arena_planners/README.md) submodule handles the bridge, observation pipeline, and HF weight fetch. Optional global plan via `robot.mobile.global_planner:=nav2/navfn`.
 
+### Forks
+A fork is an isolated container on a snapshot of your dev tree, with its own ROS domain, so you can edit, build and launch there without touching your checkout.
+
+```sh
+source arena --fork [<name>]               # enter a fork, forking the dev tree into it if new (default: lowest free pN)
+arena fork [--id] [<name>]                 # the same without entering it, --id for names like ls
+source arena --fork <name> --code          # open it in VS Code instead
+arena fork ls                              # list forks
+arena fork down <name>                     # delete a fork and its edits
+arena evaluation benchmark ... --lanes 4   # one benchmark run across 4 lanes, each in a pool fork
+```
+
+`ARENA_FORK_CPUS`, `ARENA_FORK_MEM` and `ARENA_FORK_DOMAIN_BASE` (default 20) in `.env` tune forks.
+
 
 ## Development
 
