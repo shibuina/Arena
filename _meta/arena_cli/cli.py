@@ -228,7 +228,7 @@ _register(
 _register(
     make_verb(
         "fork",
-        lambda args: _group_cmd("arena fork", _fork_mod.DESCRIPTION, _fork_mod.COMMANDS, args) if args and (args[0] in _fork_mod.COMMANDS or args[0] in ("-h", "--help")) else _fork_mod.start(args),
+        lambda args: _group_cmd("arena fork", _fork_mod.DESCRIPTION, _fork_mod.COMMANDS, args),
         passthrough=True,
         help_text=f"{_fork_mod.DESCRIPTION}\n\nCommands:\n{_listing([(v.name, v.short) for v in _fork_mod.COMMANDS.values()])}",
         complete=Sub(_fork_mod.COMMANDS),

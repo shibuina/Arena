@@ -255,7 +255,7 @@ do_run(){
         fork=$(arena_docker_compose exec -T "$arena_service" /entrypoint.sh bash --norc -c '
             set -o pipefail
             source /opt/arena_ws/source >/dev/null || exit 1
-            out=$(arena fork ${1:+--id "$1"} | tee /dev/stderr) || exit $?
+            out=$(arena fork new ${1:+"$1"} | tee /dev/stderr) || exit $?
             out=${out##*$'"'"'\n'"'"'}
             printf "%s\n" "${out%%:*}"
         ' bash "$arena_fork_id" </dev/null) || return $?
@@ -266,7 +266,7 @@ do_run(){
             code --folder-uri "vscode-remote://attached-container+$hex/opt/arena_ws/src/Arena"
             return $?
         fi
-        local fork_script='source /opt/arena_ws/source >/dev/null || exit 1; fork=$1; shift; arena fork exec --id "$fork" ${1:+bash} "$@"'
+        local fork_script='source /opt/arena_ws/source >/dev/null || exit 1; fork=$1; shift; arena fork exec "$fork" ${1:+bash} "$@"'
         if [ -t 0 ] && [ -t 1 ] && [ "$#" -eq 0 ]; then
             arena_docker_compose exec "$arena_service" /entrypoint.sh bash --norc -c "$fork_script" bash "$fork"
         else

@@ -77,7 +77,7 @@ A fork is an isolated container on a snapshot of your dev tree, with its own ROS
 
 ```sh
 source arena --fork [<name>]               # enter a fork, forking the dev tree into it if new (default: lowest free pN)
-arena fork [--id] [<name>]                 # the same without entering it, --id for names like ls
+arena fork new [<name>]                    # the same without entering it
 source arena --fork <name> --code          # open it in VS Code instead
 arena fork ls                              # list forks
 arena fork down <name>                     # delete a fork and its edits

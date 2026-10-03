@@ -21,20 +21,9 @@ from collections.abc import Callable, Iterable, Iterator
 from arena_cli import features
 from arena_cli.common import CLIError, Verb, _env, make_verb
 
-DESCRIPTION = """Forks: isolated containers on frozen releases of the dev tree.
+DESCRIPTION = """Isolated containers on snapshots of the dev tree, each on its own ROS domain.
 
-`arena fork [--id] [<fork>]` forks the dev tree into <fork>, or starts it if it exists, the
-lowest free pN when no name is given. `--id` names a fork that shares a command's name.
-
-A fork is the dev image over an overlay of a release, a hardlinked snapshot of the built dev
-tree taken when the fork is made. It has its own hostname, ROS domain and gz partition, so
-forks see neither each other nor the dev container, and its edits, builds and commits land in
-build/.forks/<fork> without touching the dev tree. Only data/, _assets, .env and the caches are
-shared. Kept forks (`arena fork`, `source arena --fork`) stay until `down` names them. Pool
-forks p1, p2, ... run the lanes of `arena evaluation benchmark --lanes N`, are reused while
-the dev tree is unchanged, and go with a bare `down`. Releases no fork uses are pruned
-automatically. A new fork takes the lowest free ROS domain from ARENA_FORK_DOMAIN_BASE
-(default 20) up and keeps it, ARENA_FORK_CPUS and ARENA_FORK_MEM in .env cap each fork."""
+`source arena --fork [<fork>]` enters one, forking it first if it does not exist."""
 
 _SKIP_DIRS = {".venv", ".ruff_cache", ".pytest_cache", ".hypothesis", ".mypy_cache"}
 _RCFILE = "/opt/arena_ws/src/Arena/_meta/docker/features/docker/rcfile"
@@ -404,25 +393,21 @@ def _pool(n: int) -> list[str]:
     return pool
 
 
-def _take_id(argv: list[str]) -> tuple[str | None, list[str]]:
-    """Fork name from a leading `--id <fork>` or `--id=<fork>`, else from a leading positional, and the rest of argv."""
-    if argv and argv[0] == "--id":
-        if len(argv) < 2:
-            raise CLIError("--id needs a fork name")
-        return argv[1], argv[2:]
-    if argv and argv[0].startswith("--id="):
-        return argv[0].removeprefix("--id="), argv[1:]
-    if argv and not argv[0].startswith("-"):
-        return argv[0], argv[1:]
-    return None, argv
+def new(argv: list[str]) -> None:
+    """Fork the dev tree into a new fork, or start an existing one.
 
-
-def start(argv: list[str]) -> None:
-    """Fork the dev tree as it is now into a kept fork, or start an existing fork."""
+    `arena fork new [<fork>]`, the lowest free pN when no name is given. A
+    fork is the dev image over an overlay of a hardlinked snapshot of the built
+    dev tree, so its edits, builds and commits land in build/.forks/<fork>
+    without touching the dev tree. It has its own hostname, gz partition and
+    the lowest ROS domain free from ARENA_FORK_DOMAIN_BASE (default 20) up, and
+    ARENA_FORK_CPUS and ARENA_FORK_MEM in .env cap it. It stays until
+    `arena fork down <fork>` names it.
+    """
     _require_dev()
-    name, rest = _take_id(argv)
-    if rest:
-        raise CLIError(f"unexpected arguments {' '.join(rest)}, usage: arena fork [--id] [<fork>]")
+    if len(argv) > 1:
+        raise CLIError("usage: arena fork new [<fork>]")
+    name = argv[0] if argv else None
     if name is not None and (not _FORK_RE.fullmatch(name) or name == "releases"):
         raise CLIError(f"fork name '{name}' must be 1-63 lowercase letters, digits, '-' or '_', starting with a letter or digit, and not 'releases'")
     forks = _forks()
@@ -457,7 +442,7 @@ def ls(argv: list[str]) -> None:
             print(f"{name:<{w}}{fork['kind']:<6}{fork['release']:<17}{fork['domain']:<8}{fork['state']}")
         print()
     else:
-        print("no forks, 'arena fork' or 'source arena --fork' makes one, 'arena evaluation benchmark --lanes N' a pool\n")
+        print("no forks, 'arena fork new' or 'source arena --fork' makes one, 'arena evaluation benchmark --lanes N' a pool\n")
     print(f"{'RELEASE':<17}{'CREATED':<21}{'CHANGED':>9}{'COPIED':>11}  FORKS")
     for rid in _release_ids():
         meta = _meta(rid)
@@ -470,15 +455,15 @@ def ls(argv: list[str]) -> None:
 
 
 def exec_(argv: list[str]) -> None:
-    """Open a shell in a fork, or run a command there, starting the fork if it is stopped.
+    """Open a shell in a fork, or run a command there.
 
-    `arena fork exec [--id] <fork> [command...]`, e.g. `arena fork exec p1 arena launch sim:=gazebo headless:=true`.
+    `arena fork exec <fork> [command...]`, starting the fork if it is stopped, e.g. `arena fork exec p1 arena launch sim:=gazebo headless:=true`.
     The command runs in the fork's sourced arena environment, on the fork's own ROS domain.
     """
     _require_dev()
-    fork, cmd = _take_id(argv)
-    if fork is None:
-        raise CLIError("usage: arena fork exec [--id] <fork> [command...]")
+    if not argv:
+        raise CLIError("usage: arena fork exec <fork> [command...]")
+    fork, cmd = argv[0], argv[1:]
     forks = _forks()
     if fork not in forks:
         raise CLIError(f"no fork '{fork}', see 'arena fork ls'")
@@ -573,19 +558,18 @@ def run_shared(n: int, args: list[str]) -> None:
 
 
 def down(argv: list[str]) -> None:
-    """Delete forks, container and edits both.
+    """Delete forks. Bare, the pool forks of --lanes runs.
 
-    `arena fork down [[--id] <fork>...]`, every pool fork when none is given.
-    Kept forks go only when named.
+    `arena fork down [<fork>...]` deletes the named forks, container and edits
+    both. Bare it deletes the pool forks p1, p2, ... that `arena evaluation
+    benchmark --lanes N` made, kept forks go only when named.
     """
     _require_dev()
     forks = _forks()
-    names: list[str] = []
-    while argv:
-        name, argv = _take_id(argv)
-        if name is None:
-            raise CLIError(f"unexpected argument {argv[0]}, usage: arena fork down [[--id] <fork>...]")
-        names.append(name)
+    names = list(argv)
+    bad = [a for a in names if a.startswith("-")]
+    if bad:
+        raise CLIError(f"unexpected argument {bad[0]}, usage: arena fork down [<fork>...]")
     targets = names or [name for name, fork in forks.items() if fork["kind"] == "pool"]
     if not targets:
         kept = [name for name, fork in forks.items() if fork["kind"] == "kept"]
@@ -601,6 +585,7 @@ def down(argv: list[str]) -> None:
 COMMANDS: dict[str, Verb] = {
     v.name: v
     for v in [
+        make_verb("new", new),
         make_verb("ls", ls),
         make_verb("exec", exec_, passthrough=True),
         make_verb("down", down),
