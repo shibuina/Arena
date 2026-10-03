@@ -16,10 +16,6 @@ HOST_UID=$(id -u)
 export HOST_UID
 HOST_GID=$(id -g)
 export HOST_GID
-HOST_VIDEO_GID=$(stat -c '%g' /dev/dri/card0 2>/dev/null || printf '%s' "$HOST_GID")
-export HOST_VIDEO_GID
-HOST_RENDER_GID=$(stat -c '%g' /dev/dri/renderD128 2>/dev/null || printf '%s' "$HOST_VIDEO_GID")
-export HOST_RENDER_GID
 
 export arena_compose_sudo=""
 source "$ARENA_DIR/_meta/docker/lib"
