@@ -3,6 +3,9 @@ repos:
     rev: v0.15.10
     hooks:
       - id: ruff
+        args: [.]
+        pass_filenames: false
+        always_run: true
   - repo: local
     hooks:
       - id: doc-links
