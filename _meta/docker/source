@@ -248,10 +248,10 @@ do_run(){
         healthy|none) ;;
         *)
             (
-                arena_docker attach --no-stdin --sig-proxy=false "$ID" &
+                arena_docker logs --follow "$ID" &
                 local LOGS_PID=$!
-                trap 'kill "$LOGS_PID" 2>/dev/null' EXIT
-                trap 'kill "$LOGS_PID" 2>/dev/null; exit 130' INT TERM
+                trap 'pkill -P "$LOGS_PID" 2>/dev/null; kill "$LOGS_PID" 2>/dev/null' EXIT
+                trap 'pkill -P "$LOGS_PID" 2>/dev/null; kill "$LOGS_PID" 2>/dev/null; exit 130' INT TERM
                 arena_container_wait "$arena_service"
             ) || return $?
             ;;
