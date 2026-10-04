@@ -264,9 +264,9 @@ def generate_launch_description() -> launch.LaunchDescription:
     for name, description in EPISODE_PARAMS.items():
         LaunchArgument(name=name, default_value='', description=f'{description} Empty = node default.')
     scenario_file = LaunchArgument(
-        name='task.scenario',
+        name='task.scenario.file',
         default_value='',
-        description='Sets task.scenario.file ROS param (empty = use task.params default).',
+        description='Scenario for the scenario task modes (empty = use task.params default).',
     )
     scenario_linger = LaunchArgument(
         name='task.scenario.linger_after_completion',

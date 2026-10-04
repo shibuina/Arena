@@ -472,7 +472,7 @@ given) and will be removed in a future release.
 | `tm_obstacles` | `task.obstacles` |
 | `tm_modules` | `task.modules` |
 | `task_config` | `task.config` |
-| `scenario_file` | `task.scenario` |
+| `scenario_file`, `task.scenario` | `task.scenario.file` |
 | `parameter_file` | `task.params` |
 | `episodes` | `task.episode.count` |
 | `auto_reset` | `task.episode.auto_reset` |

@@ -149,7 +149,7 @@ def _supervisor(*argv: str) -> None:
     _exec("python3", "-m", "arena_bringup.supervisor", *argv)
 
 
-_LAUNCH_FILES = {"task.config": Files(), "task.scenario": Files(), "task.params": Files(), "record.dir": Files()}
+_LAUNCH_FILES = {"task.config": Files(), "task.scenario.file": Files(), "task.params": Files(), "record.dir": Files()}
 RUNTIME_ARGS = LaunchArgs("arena_bringup", "arena_runtime.launch.py", _LAUNCH_FILES)
 ENV_ARGS = LaunchArgs("task_generator", "task_generator.launch.py", _LAUNCH_FILES)
 SUPERVISOR_KNOBS = Kv(

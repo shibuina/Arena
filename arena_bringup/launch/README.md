@@ -37,7 +37,7 @@ Old flat names (`tm_robots`, `mobile`, `env_n`, ...) still work with a warning, 
 | `task.config` | string | `` (empty) | Path to a [TaskModeSpec YAML](../configs/tasks/README.md); empty -> synthesize from `task.robots` (wins if both set) |
 | `task.obstacles` | string | `random` | Obstacle task mode |
 | `task.modules` | string | `rviz_ui` | Comma-separated task modules to load |
-| `task.scenario` | string | `` (empty) | Sets the `task.scenario.file` ROS param (empty = use the `task.params` default) |
+| `task.scenario.file` | string | `` (empty) | Scenario for the `scenario` task modes (empty = use the `task.params` default) |
 | `task.params` | string | `configs/task_generator.yaml` | Task-generator ROS parameter YAML |
 | `task.episode.count` | int string | `-1` | Stop the env after N episodes (`-1` = run forever) |
 | `task.episode.fail_on_collision` | bool string | `false` | Abort the episode as FAILED on robot footprint contact |
