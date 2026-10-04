@@ -50,7 +50,6 @@ Config.General.RNG.stream("obstacles", "random")   # independent numpy Generator
 
 | Attribute | ROS param | Default | Notes |
 | --- | --- | --- | --- |
-| `WAIT_FOR_SERVICE_TIMEOUT` | `timeout_wait_for_service` | `30` | seconds |
 | `MAX_RESET_FAIL_TIMES` | `task.episode.reset.max_fails` | `10` | |
 | `DESIRED_EPISODES` | `task.episode.count` | `-1` | parsed to `inf` when negative |
 

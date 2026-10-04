@@ -76,11 +76,6 @@ def Configuration(server: ROSParamServer) -> type:
             General Task Configuration
             """
 
-            WAIT_FOR_SERVICE_TIMEOUT = server.ROSParam[float](
-                'timeout_wait_for_service',
-                30,
-            )
-
             MAX_RESET_FAIL_TIMES = server.ROSParam[int](
                 'task.episode.reset.max_fails',
                 10,
