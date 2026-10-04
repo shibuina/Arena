@@ -16,6 +16,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - run: git -C arena_training submodule update --init deps/rosnav_rl
       - uses: pre-commit/action@v3.0.1
 
   per-commit:
@@ -56,6 +57,7 @@ jobs:
             echo "::group::$(git log -1 --format='%h %s' "$sha")"
             git checkout -q -f --detach "$sha"
             git submodule update -q --init --force
+            git -C arena_training submodule update -q --init --force deps/rosnav_rl
             if pre-commit run --all-files; then state=success; else state=failure; failed=1; fi
             echo "::endgroup::"
             gh api "repos/$GITHUB_REPOSITORY/statuses/$sha" -f state="$state" -f context="lint / per commit" -f target_url="$RUN_URL" > /dev/null

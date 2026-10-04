@@ -95,7 +95,6 @@ src = [
 extend-exclude = [
     "arena_tools",
     "arena_robots/deps",
-    "arena_training/deps",
     "arena_planners/planners",
     ".venv",
     "**/launch",
