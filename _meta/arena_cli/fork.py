@@ -198,7 +198,7 @@ def _release() -> str:
         venv = os.environ.get("ARENA_VENV_DIR", "/opt/venv")
         sources = {
             "src": ("src", src, lambda: _without_git_stores(src, _walk(src, skip_top=frozenset({"Arena/_assets"})), stores), lambda rel: False),
-            "build": ("build", os.path.join(ws, "build"), lambda: _walk(os.path.join(ws, "build"), skip_top=frozenset({".forks"})), planner_venv),
+            "build": ("build", os.path.join(ws, "build"), lambda: _walk(os.path.join(ws, "build"), skip_top=frozenset({".forks", ".uv-cache"})), planner_venv),
             "install": ("install", os.path.join(ws, "install"), lambda: _walk(os.path.join(ws, "install")), lambda rel: False),
             "venv": (os.path.join("src", "Arena", ".venv"), venv, lambda: _walk(venv), lambda rel: False),
             "uv-python": ("uv-python", os.path.join(ws, ".uv-python"), lambda: _walk(os.path.join(ws, ".uv-python")), lambda rel: False),

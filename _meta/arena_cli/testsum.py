@@ -78,7 +78,7 @@ def summarize(argv: list[str]) -> int:
     if args.packages:
         pkg_dirs = [build / p for p in args.packages if (build / p).is_dir()]
     else:
-        pkg_dirs = sorted(p for p in build.iterdir() if p.is_dir())
+        pkg_dirs = sorted(p for p in build.iterdir() if p.is_dir() and not p.name.startswith("."))
 
     rows: list[tuple[str, int, int, int, int, float]] = []
     all_fails: dict[str, list[tuple[str, str, str, str]]] = {}

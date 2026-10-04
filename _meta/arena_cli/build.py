@@ -87,6 +87,13 @@ def _recursive_mtime(path: str) -> int:
     return int(best)
 
 
+def _mount_point(path: str) -> str:
+    path = os.path.realpath(path)
+    while not os.path.ismount(path):
+        path = os.path.dirname(path)
+    return path
+
+
 def build_main(argv: list[str]) -> int:
     """Run colcon build with the workspace package-skip and cmake-args logic. Assumes cwd is ARENA_WS_DIR."""
     import subprocess
@@ -159,7 +166,12 @@ def build_main(argv: list[str]) -> int:
 
     print(f"BUILDING: colcon build {' '.join(display_args)} {' '.join(args)}")
 
-    result = subprocess.run(["colcon", "build", *exec_args, *args], check=False)
+    env = os.environ.copy()
+    uv_cache = os.environ.get("UV_CACHE_DIR")
+    if uv_cache and _mount_point(uv_cache) == _mount_point(ws.build_base):
+        env["UV_LINK_MODE"] = "hardlink"
+
+    result = subprocess.run(["colcon", "build", *exec_args, *args], env=env, check=False)
     return result.returncode
 
 

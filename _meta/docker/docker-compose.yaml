@@ -24,7 +24,6 @@ services:
       - "$HOST_ARENA_WS_DIR/install:/opt/arena_ws/install"
       - "$HOST_ARENA_WS_DIR/log:/opt/arena_ws/log"
       - "$HOST_ARENA_WS_DIR/.uv-python:/opt/arena_ws/.uv-python"
-      - "$HOST_ARENA_WS_DIR/.uv-cache:/opt/arena_ws/.uv-cache"
       - "$HOST_ARENA_WS_DIR/.env:/opt/arena_ws/.env"
       - "$HOST_ARENA_DATA_DIR:/opt/arena_ws/data"
       - "$HOST_ARENA_SCREENSHOTS_DIR:/opt/arena_ws/screenshots"
@@ -36,7 +35,7 @@ services:
       - PULSE_SERVER=unix:/tmp/pulse/native
       - UV_LINK_MODE=copy
       - UV_PYTHON_INSTALL_DIR=/opt/arena_ws/.uv-python
-      - UV_CACHE_DIR=/opt/arena_ws/.uv-cache
+      - UV_CACHE_DIR=/opt/arena_ws/build/.uv-cache
       - AMENT_CMAKE_VENV_UV_OVERRIDES=/opt/arena_ws/src/Arena/_meta/docker/uv-overrides.txt
       - ARENA_IMAGE
       - ARENA_IMAGE_TAG
