@@ -40,3 +40,8 @@
 	url = https://github.com/voshch/arena-auditory.git
 	branch = jazzy
 	update = checkout
+[submodule "arena_assets"]
+	path = arena_assets
+	url = https://github.com/voshch/arena-assets.git
+	branch = master
+	update = checkout

@@ -83,8 +83,8 @@ def pull_main(argv: list[str]) -> int:
             else:
                 print("no upstream for current branch, skipping Arena pull")
 
-            if subprocess.run(["git", "submodule", "update", "--init", "--checkout", "arena_planners", "arena_robots", "humansim"], env=env, check=False).returncode:
-                print("failed to init/update arena_planners/arena_robots/humansim, ignoring")
+            if subprocess.run(["git", "submodule", "update", "--init", "--checkout", "arena_assets", "arena_planners", "arena_robots", "humansim"], env=env, check=False).returncode:
+                print("failed to init/update arena_assets/arena_planners/arena_robots/humansim, ignoring")
                 skipped.append("core submodules")
 
             if subprocess.run(["git", "submodule", "update", "--checkout", "--recursive"], env=env, check=False).returncode:

@@ -204,7 +204,7 @@ def _net_resolver(kind: str, bucket: str) -> NetResolver | None:
 def _net(bucket: str, *args: str) -> int:
     import subprocess
 
-    return subprocess.call(["ros2", "run", "arena_models", "arena_models", "-s", "net", bucket, *args])
+    return subprocess.call(["ros2", "run", "arena_assets", "arena_assets", "-s", "net", bucket, *args])
 
 
 def pull(argv: list[str]) -> int:
