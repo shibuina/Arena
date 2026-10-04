@@ -73,7 +73,7 @@ services:
     tty: true
     healthcheck:
       test: ["CMD", "test", "-f", "/.built"]
-      interval: 1s
+      interval: 5s
       timeout: 2s
       retries: 99999 # if you can't build by then, good juck
       start_period: 0s
