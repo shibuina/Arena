@@ -4,6 +4,47 @@ import os
 import sys
 
 
+def restore_branches(root: str, env: dict[str, str]) -> bool:
+    """Put every pinned submodule back on its .gitmodules branch, printing each one that keeps unpushed commits instead."""
+    import subprocess
+
+    listing = 'printf "%s\\t%s\\t%s\\n" "$displaypath" "$PWD" "$(git config -f "$toplevel/.gitmodules" "submodule.$name.branch")"'
+    proc = subprocess.run(["git", "submodule", "foreach", "--quiet", "--recursive", listing], cwd=root, env=env, capture_output=True, text=True, check=False)
+    ok = proc.returncode == 0
+    for line in proc.stdout.splitlines():
+        name, path, branch = line.split("\t")
+        if not branch:
+            continue
+        note, attached = attach_branch(path, branch, env)
+        ok = ok and attached
+        if note:
+            print(f"  {name}: {note}")
+    return ok
+
+
+def attach_branch(repo: str, branch: str, env: dict[str, str]) -> tuple[str, bool]:
+    """Move branch onto the checked-out pin, or switch to it when it holds unpushed commits the pin lacks."""
+    import subprocess
+
+    def git(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["git", "-C", repo, *args], env=env, capture_output=True, text=True, check=False)
+
+    if git("rev-parse", "-q", "--verify", f"refs/heads/{branch}").returncode == 0:
+        unpushed = int(git("rev-list", "--count", f"refs/heads/{branch}", "--not", "HEAD", "--remotes").stdout)
+        if unpushed:
+            if git("merge-base", "--is-ancestor", "HEAD", f"refs/heads/{branch}").returncode:
+                pin = git("rev-parse", "--short", "HEAD").stdout.strip()
+                return f"left detached at the pin {pin}, {branch} has {unpushed} unpushed commits not in it, rebase them onto it", True
+            switched = git("switch", branch)
+            if switched.returncode:
+                return f"could not switch to {branch} ({unpushed} unpushed commits ahead of the pin): {switched.stderr.strip()}", False
+            return f"kept {branch}, {unpushed} unpushed commits ahead of the pin", True
+    reset = git("switch", "-C", branch, "HEAD")
+    if reset.returncode:
+        return f"could not reset branch {branch}: {reset.stderr.strip()}", False
+    return "", True
+
+
 def pull_main(argv: list[str]) -> int:
     """Pull Arena repos/submodules/features and refresh rosdep and python deps. Chdirs to ARENA_DIR for the duration."""
     import shutil
@@ -50,8 +91,7 @@ def pull_main(argv: list[str]) -> int:
                 print("submodule checkout had issues, resolve manually")
                 skipped.append("recursive submodules")
 
-            foreach_script = 'branch=$(git config -f "$toplevel/.gitmodules" "submodule.$name.branch" 2>/dev/null || true)\nif [ -n "$branch" ]; then\n    git switch -C "$branch" HEAD || echo "  $name: could not reset branch $branch"\nfi\n'
-            if subprocess.run(["git", "submodule", "foreach", "--recursive", foreach_script], env=env, check=False).returncode:
+            if not restore_branches(arena_dir, env):
                 print("submodule branch reset had issues, ignoring")
 
             repos_file = os.path.join(arena_dir, "_meta", "repos", "arena.repos")
