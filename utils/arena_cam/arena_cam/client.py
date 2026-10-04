@@ -24,14 +24,14 @@ from pathlib import Path
 import rclpy
 from arena_rclpy_mixins import ArenaMixinNode
 from arena_rclpy_mixins.Time import Time
+from arena_runtime.lockstep import register_channels
 from arena_runtime_msgs.msg import (
     EnvRegistry,
     LockstepChannel,
     LockstepHeartbeat,
-    LockstepRegistration,
     LockstepStatus,
 )
-from arena_runtime_msgs.srv import LifecycleHold, LifecycleStep, LockstepRegister
+from arena_runtime_msgs.srv import LifecycleHold, LifecycleStep
 from builtin_interfaces.msg import Time as RosTime
 from geometry_msgs.msg import Point, PoseStamped
 from rclpy.duration import Duration
@@ -243,25 +243,16 @@ class CamNode(ArenaMixinNode):
         """Ride the active lockstep run instead of driving the sim: register a hard
         cam channel at 1/fps, pulse one window per frame, then capture the frozen
         tick, so frames are gate-exact with every producer's window data arrived."""
-        register = self.create_client_wrapper(LockstepRegister, "/arena/sim_lifecycle/lockstep/register")
         topic = f"{self.get_fully_qualified_name()}/lockstep"
-        registration = LockstepRegistration(
-            caller=topic,
-            env="",
-            channels=[
-                LockstepChannel(
-                    name="cam",
-                    topic=topic,
-                    type="arena_runtime_msgs/msg/LockstepHeartbeat",
-                    period_s=1.0 / self._fps,
-                    hard=True,
-                )
-            ],
+        channel = LockstepChannel(
+            name="cam",
+            topic=topic,
+            type="arena_runtime_msgs/msg/LockstepHeartbeat",
+            period_s=1.0 / self._fps,
+            hard=True,
         )
-        response = await register.call_timeout(LockstepRegister.Request(registration=registration))
-        if response is None or not response.success:
-            detail = "service timed out" if response is None else response.error_msg
-            self.get_logger().warning(f"cam channel registration failed ({detail}), falling back to hold-and-step record")
+        if not await register_channels(self, [channel], env="", caller=topic, timeout=60.0):
+            self.get_logger().warning("cam channel registration failed, falling back to hold-and-step record")
             await self._run_lockstep()
             return
         self._beat_pub = self.create_publisher(LockstepHeartbeat, topic, 10)
@@ -272,7 +263,7 @@ class CamNode(ArenaMixinNode):
             await self._timeline.run(self)
         finally:
             self._follower = False
-            await register.call_timeout(LockstepRegister.Request(registration=LockstepRegistration(caller=topic, env="", channels=[])))
+            await register_channels(self, [], env="", caller=topic, timeout=60.0)
 
     async def _run_lockstep(self) -> None:
         """Acquire a sim hold and run the timeline with physics stepped 1/fps per recorded frame."""

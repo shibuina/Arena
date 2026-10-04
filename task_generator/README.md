@@ -26,8 +26,10 @@ in [`arena_runtime/`](../arena_runtime/README.md).
 - [Human simulator](task_generator/simulators/human/README.md):
   `BaseHumanSimulator`, PROMPT registration, hunav default agent.
 - [Auditory simulator](../arena_auditory/README.md): `auditory:=` axis,
-  `BaseAuditorySimulator` declares the map-server requirement; nodes live in
-  the `arena_auditory` package, launch dispatch in `launch/auditory/`.
+  `BaseAuditorySimulator` declares the map-server requirement and the RViz
+  displays. The nodes live in the `arena_auditory` package (`arena feature
+  auditory install`), [launch dispatch](launch/auditory/README.md) in
+  `launch/auditory/`.
 - [Utils](task_generator/utils/README.md): generic `Registry`, arena helpers,
   GPT shim, map generator.
 - [Constants](task_generator/constants/README.md): `Configuration(server)`

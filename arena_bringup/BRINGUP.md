@@ -484,6 +484,20 @@ given) and will be removed in a future release.
 | `arm`, `arm.<key>` | `robot.arm`, `robot.arm.<key>` |
 | `planner` | `robot.planner` |
 | `train_mode` | `robot.train` |
+| `auditory.viz` | `auditory.viz.enabled` |
+| `auditory.playback` | `auditory.output.device` |
+| `auditory.block_size` | `auditory.output.block_size` |
+| `auditory.propagation` | `auditory.propagation.backend` |
+| `auditory.multi_portal` | `auditory.portal.multi_hop.enabled` |
+| `auditory.ped_hearing` | `auditory.pedestrian_listeners.enabled` |
+| `auditory.robot_sound` | `auditory.motor.enabled` |
+| `auditory.motor` | `auditory.motor.model` |
+| `auditory.motor.volume_db` | `auditory.motor.trim_db` |
+| `auditory.environment_playback` | `auditory.output.ambient.enabled` |
+| `auditory.listener` | `auditory.listener.id` |
+| `auditory.viewport_height` | `auditory.viewport.height_m` |
+| `auditory.listener_frame` | `auditory.array.mount_frame` |
+| `microphone_mode` | `auditory.array.spec` |
 
 ## CLI verbs
 

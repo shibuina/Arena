@@ -20,8 +20,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libncursesw5-dev \
     sudo \
     ros-jazzy-rmw-cyclonedds-cpp \
-    libportaudio2 \
-    portaudio19-dev \
     libasound2-dev \
     libasound2-plugins \
     alsa-utils \

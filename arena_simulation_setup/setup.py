@@ -65,10 +65,6 @@ setup(
             'worlds',
             skip_if_present_in='acoustics/worlds',
         ),
-        (
-            os.path.join('share', package_name, 'acoustics'),
-            ['acoustics/README.md', 'acoustics/record_acoustics_dataset.sh'],
-        ),
         *_walk_data_files_into('acoustics/worlds', 'worlds'),
     ],
     install_requires=[
@@ -78,9 +74,6 @@ setup(
         'shapely',
         'pillow',
         'numpy',
-        'pyarrow',
-        'mcap',
-        'mcap-ros2-support',
     ],
     extras_require={
         'test': ['pytest>=7', 'hypothesis>=6'],
@@ -99,9 +92,6 @@ setup(
         'console_scripts': [
             f'generate_world = {package_name}.utils.generative.world_generator:main',
             f'world_generator = {package_name}.utils.generative.world_generator_ros:main',
-            f'export_acoustics_recording = {package_name}.acoustics.export_recording:main',
-            f'wait_acoustics_capture = {package_name}.acoustics.wait_capture:main',
-            f'normalize_acoustics_scenarios = {package_name}.acoustics.scenario_layout:main',
         ],
     },
 )

@@ -820,10 +820,26 @@ def single_repo(root: pathlib.Path) -> pathlib.Path:
     return root
 
 
-def test_lock_home_is_lone_member_of_single_member_submodule() -> None:
-    assert uvw.lock_home("sub", ["sub/pkg"]) == "sub/pkg"
-    assert uvw.lock_home("sub", ["sub/a", "sub/b"]) == "sub"
-    assert uvw.lock_home(".", ["pkg"]) == "."
+def test_lock_home_is_lone_member_of_single_member_submodule(tmp_path: pathlib.Path) -> None:
+    assert uvw.lock_home("sub", ["sub/pkg"], tmp_path) == "sub/pkg"
+    assert uvw.lock_home("sub", ["sub/a", "sub/b"], tmp_path) == "sub"
+    assert uvw.lock_home(".", ["pkg"], tmp_path) == "."
+
+
+def test_ament_python_lone_member_locks_at_a_generated_repo_root_without_requires_python(tmp_path: pathlib.Path) -> None:
+    write(tmp_path / "pyproject.toml", SUPER_ROOT)
+    make_submodule(tmp_path, "aud")
+    pkg = make_package(tmp_path, "aud/aud", pyproject=project_toml("aud", deps='"attrs"'))
+    write(pkg / "package.xml", (pkg / "package.xml").read_text().replace("</package>", "  <export><build_type>ament_python</build_type></export>\n</package>"))
+    repos = uvw.repo_members(tmp_path)
+    assert uvw.lock_home("aud", repos["aud"], tmp_path) == "aud"
+    expected = tomllib.loads(uvw.expected_manifests(tmp_path, repos, uvw.load_root(tmp_path))["aud"])
+    assert expected["project"]["requires-python"] == "==3.12.*"
+    assert expected["tool"]["uv"]["workspace"]["members"] == ["aud"]
+    assert "requires-python" not in tomllib.loads((pkg / "pyproject.toml").read_text())["project"]
+    assert uvw.check_member("aud/aud", tmp_path) == []
+    write(pkg / "pyproject.toml", project_toml("aud", deps='"attrs"', extra='requires-python = "==3.12.*"\n'))
+    assert uvw.check_member("aud/aud", tmp_path) == ["aud/aud: [project].requires-python is not allowed, colcon cannot read an ament_python setup.py that carries it"]
 
 
 def test_shared_lone_member_locks_at_a_generated_repo_root_without_requires_python(tmp_path: pathlib.Path) -> None:
@@ -831,7 +847,7 @@ def test_shared_lone_member_locks_at_a_generated_repo_root_without_requires_pyth
     make_submodule(tmp_path, "arena_planners")
     make_package(tmp_path, "arena_planners/arena_planners", pyproject=project_toml("arena_planners", virtual=False))
     repos = uvw.repo_members(tmp_path)
-    assert uvw.lock_home("arena_planners", repos["arena_planners"]) == "arena_planners"
+    assert uvw.lock_home("arena_planners", repos["arena_planners"], tmp_path) == "arena_planners"
     expected = tomllib.loads(uvw.expected_manifests(tmp_path, repos, uvw.load_root(tmp_path))["arena_planners"])
     assert expected["project"]["name"] == "arena-planners-workspace"
     assert expected["project"]["requires-python"] == "==3.12.*"
@@ -880,7 +896,7 @@ def test_lone_member_at_repo_root_keeps_its_manifest(tmp_path: pathlib.Path, cap
     make_submodule(tmp_path, "train")
     make_package(tmp_path, "train", pyproject=project_toml("train", deps='"attrs"', virtual=False))
     repos = uvw.repo_members(tmp_path)
-    assert uvw.lock_home("train", repos["train"]) == "train"
+    assert uvw.lock_home("train", repos["train"], tmp_path) == "train"
     expected = uvw.expected_manifests(tmp_path, repos, uvw.load_root(tmp_path))["train"]
     assert tomllib.loads(expected)["project"]["name"] == "train"
     assert tomllib.loads(expected)["project"]["requires-python"] == "==3.12.*"

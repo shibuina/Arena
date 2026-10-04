@@ -226,6 +226,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
         # M2 semantics write path: inert-zone field overrides, bare->realized entity
         # name map, and the scenario timeline evaluated on sim time.
         self._zone_overrides: dict[tuple[str, str], object] = {}
+        self._sound_levels: dict[str, float] = {}
         self._semantic_names: dict[str, str] = {}
         self._timeline: list[TimelineEntry] = []
         self._timeline_state: list[dict[str, object]] = []
@@ -499,6 +500,13 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             env_id=self._env_id,
         )
         self._simulator.set_semantics_callback(self._on_semantics_changed)
+        self._logger.info("Setting up auditory simulator")
+        self._auditory_simulator = await AuditorySimulatorRegistry.get(
+            self.conf.Arena.AUDITORY.value,
+            node=self,
+            namespace=self._namespace,
+        )
+
         self._logger.info("Setting up human simulator")
         self._human_simulator = await HumanSimulatorRegistry.get(
             self.conf.Arena.HUMAN.value,
@@ -506,13 +514,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             namespace=self._namespace,
             simulator=self._simulator,
             realizer=realizer,
-        )
-
-        self._logger.info("Setting up auditory simulator")
-        self._auditory_simulator = await AuditorySimulatorRegistry.get(
-            self.conf.Arena.AUDITORY.value,
-            node=self,
-            namespace=self._namespace,
+            auditory=self._auditory_simulator,
         )
 
         self._logger.info("Setting up environment manager")
@@ -797,7 +799,13 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
                 return self._stringify_float(snap.continuous[field])
             if field in snap.predicates:
                 return "true" if snap.predicates[field] else "false"
+            if field == "volume_db" and realized in self._sound_levels:
+                return self._stringify_float(self._sound_levels[realized])
         return self._zone_field_value(realized, field)
+
+    def register_sound_levels(self, levels: dict[str, float]) -> None:
+        """Asset level of each episode sound, read as its volume_db while its semantics carry none."""
+        self._sound_levels = dict(levels)
 
     # SCENARIO TIMELINE
 
@@ -820,6 +828,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
         self._timeline_t0 = None
         self._episode_conditions = []
         self._zone_overrides.clear()
+        self._sound_levels.clear()
         self._semantics_dirty = True
 
     def register_conditions(self, conditions: "Sequence[EpisodeCondition]") -> None:
@@ -910,7 +919,6 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
         }
 
         env_ns = self.get_namespace()
-        auditory_ns = self.get_fully_qualified_name()
 
         env_displays: list[AdapterDisplay] = [
             AdapterDisplay(
@@ -995,52 +1003,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             )
         )
 
-        for name, topic in (
-            (
-                "Microphones",
-                f"{auditory_ns}/microphone_markers",
-            ),
-            (
-                "Environment Audio Sources",
-                f"{auditory_ns}/environment_audio_source_markers",
-            ),
-            (
-                "Pedestrian Heard Sound",
-                f"{auditory_ns}/pedestrian_sound_propagation_markers",
-            ),
-            (
-                "Robot Heard Sound",
-                f"{auditory_ns}/robot_sound_propagation_markers",
-            ),
-        ):
-            env_displays.append(
-                AdapterDisplay(
-                    name=name,
-                    topic=topic,
-                    topic_type="visualization_msgs/MarkerArray",
-                    kind=DisplayKind.MARKER_ARRAY,
-                    style_json=(latched if name == "Microphones" else StyleSpec(enabled=True).to_json()),
-                    topic_must_exist=False,
-                    group="Sound Propagation",
-                )
-            )
-        if self.conf.Robot.HEARING.value != 'none':
-            for name, topic, topic_type, kind, style in (
-                ("Belief", f"{env_ns}/hearing/belief_grid", "nav_msgs/OccupancyGrid", DisplayKind.MAP, StyleSpec(alpha=0.6, extra={"rviz": {"Color Scheme": "costmap", "Durability Policy": "Volatile"}}).to_json()),
-                ("Speed Mask", f"{env_ns}/hearing/speed_filter_mask", "nav_msgs/OccupancyGrid", DisplayKind.MAP, StyleSpec(alpha=0.4, enabled=False, extra={"rviz": {"Color Scheme": "costmap"}}).to_json()),
-                ("Wedges", f"{env_ns}/hearing/belief_wedges", "visualization_msgs/MarkerArray", DisplayKind.MARKER_ARRAY, StyleSpec(enabled=True).to_json()),
-            ):
-                env_displays.append(
-                    AdapterDisplay(
-                        name=name,
-                        topic=topic,
-                        topic_type=topic_type,
-                        kind=kind,
-                        style_json=style,
-                        topic_must_exist=False,
-                        group="Hearing",
-                    )
-                )
+        env_displays.extend(self._auditory_simulator.displays())
         entries: list[AdapterEntry] = []
         for mgr in self._robots_manager.managers.values():
             ns_value = str(mgr.namespace)
@@ -1070,22 +1033,14 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
                         displays=sensor_displays,
                     )
                 )
-            entries.append(
-                AdapterEntry(
-                    robot_ns=ns_value,
-                    adapter_kind="_auditory",
-                    displays=[
-                        AdapterDisplay(
-                            name="Motor Sound",
-                            topic=(f"{auditory_ns}/{robot_value}/motor_sound_markers"),
-                            topic_type="visualization_msgs/MarkerArray",
-                            kind=DisplayKind.MARKER_ARRAY,
-                            style_json=StyleSpec(enabled=True).to_json(),
-                            topic_must_exist=False,
-                        )
-                    ],
+            if auditory_displays := self._auditory_simulator.robot_displays(robot_value, hearing=self.conf.Robot.HEARING.value != 'none'):
+                entries.append(
+                    AdapterEntry(
+                        robot_ns=ns_value,
+                        adapter_kind="_auditory",
+                        displays=list(auditory_displays),
+                    )
                 )
-            )
 
             for adapter in mgr._adapter_instances:
 

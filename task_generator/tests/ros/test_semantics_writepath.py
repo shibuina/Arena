@@ -209,6 +209,7 @@ def _timeline_stub(entries: list, seed: int = 7) -> tuple[object, object, list[i
     fired: list[int] = []
     stub = type("Stub", (), {})()
     stub._zone_overrides = {}
+    stub._sound_levels = {}
     stub._fire_timeline_entry = lambda idx, entry: fired.append(idx)
     TaskGenerator.register_timeline(stub, entries, seed)
     return stub, TaskGenerator, fired
@@ -277,10 +278,12 @@ def test_reset_timeline_clears_state() -> None:
 
     entry = TimelineEntry(set=[{"entity": "a", "field": "x", "value": "1"}], at=1.0)
     stub, cls, _fired = _timeline_stub([entry])
+    TaskGenerator.register_sound_levels(stub, {"env_0/alarm_sound": 88.0})
     TaskGenerator.reset_timeline(stub)
     assert stub._timeline == []
     assert stub._timeline_state == []
     assert stub._timeline_t0 is None
+    assert stub._sound_levels == {}
 
 
 # ---------------------------------------------------------------------------

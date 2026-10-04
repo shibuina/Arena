@@ -35,3 +35,8 @@
 	url = https://github.com/voshch/humansim.git
 	branch = jazzy
 	update = checkout
+[submodule "arena_auditory"]
+	path = arena_auditory
+	url = https://github.com/voshch/arena-auditory.git
+	branch = jazzy
+	update = checkout

@@ -16,6 +16,7 @@ import tomllib
 from collections.abc import Iterator
 
 EXCLUDED = (
+    "arena_assets",
     "arena_planners/planners",
     "arena_isaac",
     "arena_tools",
@@ -192,6 +193,8 @@ def check_member(member: str, root: pathlib.Path) -> list[str]:
         problems.append(f"{member}: [project].dependencies must be a list")
     if member in SHARED_MEMBERS and "requires-python" in project:
         problems.append(f"{member}: [project].requires-python is not allowed, other Python environments install this member")
+    if ament_python(root / member) and "requires-python" in project:
+        problems.append(f"{member}: [project].requires-python is not allowed, colcon cannot read an ament_python setup.py that carries it")
     forbidden = sorted(FORBIDDEN_DYNAMIC.intersection(project.get("dynamic", [])))
     if forbidden:
         problems.append(f"{member}: [project].dynamic must not contain {', '.join(forbidden)}")
@@ -270,13 +273,19 @@ def relative_members(members: list[str], base: pathlib.Path, root: pathlib.Path)
     return sorted(pathlib.PurePath(os.path.relpath(root / member, base)).as_posix() for member in members)
 
 
-def single_member(repo: str, members: list[str]) -> bool:
-    return repo != SUPERPROJECT and len(members) == 1 and members[0] not in SHARED_MEMBERS
+def ament_python(package_dir: pathlib.Path) -> bool:
+    """Whether the package.xml in package_dir declares the ament_python build type."""
+    manifest = package_dir / "package.xml"
+    return manifest.is_file() and "<build_type>ament_python</build_type>" in manifest.read_text(encoding="utf-8")
 
 
-def lock_home(repo: str, members: list[str]) -> str:
-    """Directory whose pyproject.toml owns the repo's uv.lock: the lone unshared member of a submodule, else the repo root."""
-    return members[0] if single_member(repo, members) else repo
+def single_member(repo: str, members: list[str], root: pathlib.Path) -> bool:
+    return repo != SUPERPROJECT and len(members) == 1 and members[0] not in SHARED_MEMBERS and not ament_python(root / members[0])
+
+
+def lock_home(repo: str, members: list[str], root: pathlib.Path) -> str:
+    """Directory whose pyproject.toml owns the repo's uv.lock: the lone unshared non-ament_python member of a submodule, else the repo root."""
+    return members[0] if single_member(repo, members, root) else repo
 
 
 def lock_label(home: str) -> str:
@@ -369,8 +378,8 @@ def expected_manifests(root: pathlib.Path, repos: dict[str, list[str]], data: di
     for repo, members in repos.items():
         if repo == SUPERPROJECT:
             continue
-        home = lock_home(repo, members)
-        if single_member(repo, members):
+        home = lock_home(repo, members, root)
+        if single_member(repo, members, root):
             expected[home] = single_member_text((root / home / "pyproject.toml").read_text(encoding="utf-8"), data)
         else:
             expected[home] = repo_manifest_text(repo, members, root, data)
@@ -379,7 +388,7 @@ def expected_manifests(root: pathlib.Path, repos: dict[str, list[str]], data: di
 
 def stray_files(root: pathlib.Path, repo: str, members: list[str]) -> list[pathlib.Path]:
     """Locks outside the repo's lock home and a generated workspace root a single-member repo no longer uses."""
-    home = lock_home(repo, members)
+    home = lock_home(repo, members, root)
     stray = [root / place / "uv.lock" for place in sorted({repo, *members} - {home}) if (root / place / "uv.lock").is_file()]
     if home != repo:
         data = load_toml(root / repo / "pyproject.toml")
@@ -411,7 +420,7 @@ def collect_pins(root: pathlib.Path, repos: dict[str, list[str]], *, allow_missi
     """Single-version registry pins from the locks of the given repos, refusing cross-repo conflicts."""
     owners: dict[str, dict[str, list[str]]] = {}
     for repo, members in sorted(repos.items()):
-        home = lock_home(repo, members)
+        home = lock_home(repo, members, root)
         path = root / home / "uv.lock"
         if allow_missing and not path.is_file():
             continue
@@ -534,7 +543,7 @@ def run_lock(args: argparse.Namespace) -> int:
     run_uv([uv, "lock", "--project", str(out), *upgrades], "uv lock failed on the composed workspace, release pins with --upgrade-package NAME or re-resolve with --upgrade")
     composed = lock_versions(out / "uv.lock")
     for repo, members in sorted(repos.items()):
-        home = lock_home(repo, members)
+        home = lock_home(repo, members, root)
         target = root / home / "uv.lock"
         shutil.copyfile(out / "uv.lock", target)
         run_uv([uv, "lock", "--offline", "--project", str(root / home)], f"uv lock failed deriving {lock_label(home)}")
@@ -666,7 +675,7 @@ def check(root: pathlib.Path) -> list[str]:
     expected = expected_manifests(root, repos, data)
     for repo, members in sorted(repos.items()):
         problems += [f"{rel_posix(path, root)} is stale, {LOCK_HINT}" for path in stray_files(root, repo, members)]
-        home = lock_home(repo, members)
+        home = lock_home(repo, members, root)
         manifest = data
         if repo != SUPERPROJECT:
             path = root / home / "pyproject.toml"

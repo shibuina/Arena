@@ -92,6 +92,20 @@ DEPRECATED_LAUNCH_ARGS: Mapping[str, str] = {
     'train_mode': 'robot.train',
     'record_data_dir': 'record.dir',
     'disable_auto_recorder': 'record.auto',
+    'auditory.viz': 'auditory.viz.enabled',
+    'auditory.playback': 'auditory.output.device',
+    'auditory.block_size': 'auditory.output.block_size',
+    'auditory.propagation': 'auditory.propagation.backend',
+    'auditory.multi_portal': 'auditory.portal.multi_hop.enabled',
+    'auditory.ped_hearing': 'auditory.pedestrian_listeners.enabled',
+    'auditory.robot_sound': 'auditory.motor.enabled',
+    'auditory.motor': 'auditory.motor.model',
+    'auditory.motor.volume_db': 'auditory.motor.trim_db',
+    'auditory.environment_playback': 'auditory.output.ambient.enabled',
+    'auditory.listener': 'auditory.listener.id',
+    'auditory.viewport_height': 'auditory.viewport.height_m',
+    'auditory.listener_frame': 'auditory.array.mount_frame',
+    'microphone_mode': 'auditory.array.spec',
 }
 INVERTED_LAUNCH_ARGS: frozenset[str] = frozenset({'disable_auto_recorder'})
 

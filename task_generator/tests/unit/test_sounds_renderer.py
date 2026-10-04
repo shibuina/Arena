@@ -6,17 +6,18 @@ from types import SimpleNamespace
 import pytest
 
 pytest.importorskip("rclpy")
+pytest.importorskip("arena_auditory")
 
+from arena_auditory.api import AgentKind, SoundAsset, SoundLibrary
+from arena_auditory.assets import Variant
 from arena_simulation_setup.shared import Position, Sound
 from arena_simulation_setup.shared.semantics import parse_semantics
+from geometry_msgs.msg import Point
 from task_generator.tasks.modules.sounds.impl import (
-    _CatalogEntry,
-    _catalog_default,
-    _catalog_lookup,
+    Mod_Sounds,
     _has_initial_sounding,
     _index_static_entities,
     _merge_params,
-    _parse_catalog,
     _realize_frame,
     _resolve_sound_placement,
     _sound_group_id,
@@ -236,50 +237,39 @@ def test_sounding_by_default_leaves_a_decided_entry_alone(semantics: list) -> No
 
 
 # ---------------------------------------------------------------------------
-# catalog lookup
+# asset resolution
 # ---------------------------------------------------------------------------
 
 
-def test_parse_catalog_extracts_category_tags_and_level() -> None:
-    raw = {
-        "assets": {
-            "radio_loop": {"category": "music", "semantic_tags": ["radio", "music"], "reference_level_db": 62.0},
-            "no_tags": {"category": "misc", "reference_level_db": 50},
-        },
-    }
-    catalog = _parse_catalog(raw)
-    assert catalog == {
-        "radio_loop": _CatalogEntry("music", ("radio", "music"), 62.0),
-        "no_tags": _CatalogEntry("misc", (), 50.0),
-    }
+def _build(snd: Sound, asset: SoundAsset):
+    return Mod_Sounds._build_resolved(object.__new__(Mod_Sounds), snd, asset, "env_0/radio", Point(x=1.0, y=2.0, z=1.2), 0.5, "map")
 
 
-def test_parse_catalog_requires_reference_level() -> None:
-    with pytest.raises(KeyError):
-        _parse_catalog({"assets": {"x": {"category": "music"}}})
+def test_build_resolved_takes_kind_tags_and_level_from_the_asset() -> None:
+    asset = SoundAsset(
+        id="radio_loop",
+        kind="music",
+        tags=("loop",),
+        level_db=62.0,
+        normalize_dbfs=-12.5,
+        variants=(Variant(id="radio_loop_01", model="wav", tags=("radio", "music")),),
+    )
+    resolved = _build(_launch_sound([{"preset": "sound"}]), asset)
+    assert (resolved.asset_id, resolved.kind, resolved.variant_id, resolved.model) == ("radio_loop", "music", "radio_loop_01", "wav_loop")
+    assert resolved.tags == ("radio", "music")
+    assert resolved.level_db == 62.0
 
 
-def test_catalog_lookup_known_asset() -> None:
-    catalog = {"radio_loop": _CatalogEntry("music", ("radio", "music"), 62.0)}
-    sound_type, tags, found = _catalog_lookup(catalog, "radio_loop")
-    assert found is True
-    assert sound_type == "music"
-    assert tags == ("radio", "music")
+def test_build_resolved_known_catalog_asset() -> None:
+    resolved = _build(_launch_sound([{"preset": "sound"}]), SoundLibrary.default().asset("radio_loop"))
+    assert resolved.kind == "music"
+    assert resolved.tags == ("radio", "music")
 
 
-def test_catalog_default_picks_first_asset_of_type() -> None:
-    catalog = {
-        "a": _CatalogEntry("alarm", (), 88.0),
-        "b": _CatalogEntry("music", (), 62.0),
-        "c": _CatalogEntry("music", (), 70.0),
-    }
-    assert _catalog_default(catalog, "music") == ("b", 62.0)
-    assert _catalog_default(catalog, "alarm") == ("a", 88.0)
-    assert _catalog_default(catalog, "speech") is None
-
-
-def test_catalog_lookup_unknown_asset_falls_back_to_asset_id() -> None:
-    sound_type, tags, found = _catalog_lookup({}, "mystery_sound")
-    assert found is False
-    assert sound_type == "mystery_sound"
-    assert tags == ()
+def test_default_asset_of_each_environment_kind() -> None:
+    library = SoundLibrary.default()
+    assert library.kinds_of(AgentKind.ENVIRONMENT) == ("music", "alarm")
+    assert library.default_asset("music").id == "radio_loop"
+    assert library.default_asset("alarm").id == "alarm_loop"
+    with pytest.raises(KeyError, match="has no default asset"):
+        library.default_asset("onset")

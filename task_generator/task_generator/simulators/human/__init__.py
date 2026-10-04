@@ -12,22 +12,19 @@ import attrs
 import rclpy.publisher
 import rclpy.qos
 from ament_index_python.packages import get_package_share_directory
-from arena_auditory.qos_profiles import continuous_audio_qos
 from arena_people_msgs.msg import Pedestrian, Pedestrians
 from arena_people_msgs.srv import MovePedestrians
-from arena_rclpy_mixins.Async import ClientWrapper
 from arena_rclpy_mixins.registry import AsyncFactoryRegistry as Registry
 from arena_rclpy_mixins.shared import Namespace
 from arena_runtime._node import NodeInterface
+from arena_runtime.lockstep import register_channels
 from arena_runtime.sim import BaseSim
-from arena_runtime_msgs.msg import LockstepChannel, LockstepRegistration
-from arena_runtime_msgs.srv import LockstepRegister
+from arena_runtime_msgs.msg import LockstepChannel
 from arena_simulation_setup.tree.assets.Human import HumanIdentifier
 from arena_simulation_setup.utils.models import ModelType
 from geometry_msgs.msg import Pose as PoseMsg
 from geometry_msgs.msg import Quaternion as QuaternionMsg
 from rcl_interfaces.msg import Parameter as ParameterMsg
-from task_generator_msgs.msg import ContinuousHeardSoundState
 from visualization_msgs.msg import MarkerArray
 
 from task_generator.constants import Constants
@@ -40,10 +37,11 @@ from task_generator.simulators.human.utils import (
     KnownObstacle,
     KnownObstacles,
     ObstacleLayer,
-    stimulus_edge,
 )
 
-TOPIC_CONTINUOUS_HEARD_SOUNDS = "continuous_heard_sounds"
+if typing.TYPE_CHECKING:
+    from task_generator.simulators.auditory import BaseAuditorySimulator
+    from task_generator.simulators.auditory.arena import PedestrianHearing
 
 PED_RADIUS = 0.3
 
@@ -73,7 +71,7 @@ class BaseHumanSimulator(NodeInterface, abc.ABC):
         task modes specific to their simulator (e.g. TM_Prompt).
         """
 
-    def __init__(self, *args: object, namespace: Namespace, simulator: BaseSim, realizer: Realizer, **kwargs: object) -> None:
+    def __init__(self, *args: object, namespace: Namespace, simulator: BaseSim, realizer: Realizer, auditory: BaseAuditorySimulator, **kwargs: object) -> None:
         """
         Initialize human simulator.
 
@@ -81,6 +79,7 @@ class BaseHumanSimulator(NodeInterface, abc.ABC):
             namespace: global namespace
             simulator: Simulator instance
             realizer: per-env Realizer (used to stamp sim_path on runtime-spawned obstacles)
+            auditory: auditory simulator, the source of pedestrian hearing
         """
         super().__init__(*args, **kwargs)
         self._register_task_modes()
@@ -148,42 +147,13 @@ class BaseHumanSimulator(NodeInterface, abc.ABC):
             self._cb_human_move,
         )
 
-        self._heard: dict[tuple[int, str], bool] = {}
-        self.node.create_subscription(
-            ContinuousHeardSoundState,
-            self.node.service_namespace(TOPIC_CONTINUOUS_HEARD_SOUNDS),
-            self._on_heard_sound,
-            continuous_audio_qos(),
-        )
-
-        self._lockstep_register_client: ClientWrapper = self.node.create_client_wrapper(
-            LockstepRegister,
-            "/arena/sim_lifecycle/lockstep/register",
-        )
+        self._hearing: PedestrianHearing | None = auditory.pedestrian_hearing(self)
 
         self._simulator.attach_human_simulator(self)
 
-    _LOCKSTEP_REGISTER_TIMEOUT: typing.ClassVar[float] = 3.0
-
     async def _register_lockstep_channels(self, channels: Sequence[LockstepChannel]) -> None:
-        """Fire-once, best-effort registration of this adapter's lockstep channels
-        (the service may be absent this session)."""
-        if not await self._lockstep_register_client.ensure(timeout_sec=self._LOCKSTEP_REGISTER_TIMEOUT):
-            self._logger.info("lockstep register service not available, skipping channel registration")
-            return
-        request = LockstepRegister.Request()
-        request.registration = LockstepRegistration(
-            caller=self.node.get_fully_qualified_name(),
-            env=str(self._namespace),
-            channels=list(channels),
-        )
-        try:
-            response = await self._lockstep_register_client.call_timeout(request)
-        except Exception as e:
-            self._logger.warning(f"lockstep channel registration call failed: {e}")
-            return
-        if response is not None and not response.success:
-            self._logger.warning(f"lockstep channel registration failed: {response.error_msg}")
+        """Fire-once, best-effort registration of this adapter's lockstep channels in its env."""
+        await register_channels(self.node, channels, env=str(self._namespace))
 
     def publish_arena_peds(self, msg: Pedestrians) -> None:
         """Stamp the header, substitute possessed peds, fill bare-name joint_state for peds missing one, then publish."""
@@ -261,18 +231,6 @@ class BaseHumanSimulator(NodeInterface, abc.ABC):
                 self._ped_positions_xy[name] = (x, y)
         results = await self.relay_pedestrian_update(peds_msg)
         return all(results)
-
-    # hearing
-
-    async def _on_heard_sound(self, msg: ContinuousHeardSoundState) -> None:
-        if not msg.listener_id.startswith("agent:"):
-            return
-        agent_id = int(msg.listener_id.partition(":")[2])
-        audible = bool(msg.audible)
-        key = (agent_id, msg.sound_type)
-        if stimulus_edge(self._heard.get(key), audible):
-            await self.notify_stimulus(agent_id, msg.sound_type, 1.0 if audible else 0.0)
-        self._heard[key] = audible
 
     # possession
 
@@ -618,7 +576,8 @@ class BaseHumanSimulator(NodeInterface, abc.ABC):
         """
         self._logger.debug("unusing obstacles")
         self._close_stream_gate()
-        self._heard.clear()
+        if self._hearing is not None:
+            self._hearing.clear()
 
         obstacle_names = [name for name, known in self._known_obstacles.items() if not isinstance(known.obstacle, DynamicObstacle) and known.layer == ObstacleLayer.UNUSED]
 

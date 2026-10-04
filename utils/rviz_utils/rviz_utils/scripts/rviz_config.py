@@ -15,7 +15,7 @@ import rcl_interfaces.srv
 import rclpy
 import rclpy.parameter
 import yaml
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import PackageNotFoundError, get_package_share_directory
 from arena_rclpy_mixins import ArenaMixinNode
 from arena_rclpy_mixins.shared import FrameNamespace
 from arena_robots.moveit_factory import build_moveit_params
@@ -214,9 +214,35 @@ class ConfigFileGenerator(ArenaMixinNode):
     def create_config(self) -> str:
         skeleton = self._read_default_file()
         skeleton["Visualization Manager"]["Views"]["Current"] = self._build_view()
+        self._add_auditory_plugins(skeleton)
         file_path = self._tmp_config_file(skeleton, prefix=f"env{self._env_id}_")
         self.get_logger().info(f'created config file at {file_path}')
         return file_path
+
+    def _add_auditory_plugins(self, skeleton: dict[str, object]) -> None:
+        """Append the arena_auditory_viz panel and tools when that package is installed."""
+        try:
+            get_package_share_directory("arena_auditory_viz")
+        except PackageNotFoundError:
+            return
+        skeleton["Panels"].append({"Class": "arena_auditory_viz::AuditoryPanel", "Name": "AuditoryPanel", "Target": self._TASKGEN_NODE})
+        skeleton["Visualization Manager"]["Tools"].extend(
+            [
+                {"Class": "arena_auditory_viz::SpawnMicrophoneTool", "Target": self._TASKGEN_NODE, "Height": 1.5, "Attach TF Frame": ""},
+                {
+                    "Class": "arena_auditory_viz::SpawnSoundTool",
+                    "Target": self._TASKGEN_NODE,
+                    "Kind": "music",
+                    "Height": 1.2,
+                    "Custom Playback": False,
+                    "Asset ID": "",
+                    "Source Volume": 62.0,
+                    "Loop": True,
+                    "Start Immediately": True,
+                },
+            ]
+        )
+        skeleton["Window Geometry"]["AuditoryPanel"] = {"collapsed": False}
 
     def _target_robot_frame(self) -> str | None:
         if not self._robots:
