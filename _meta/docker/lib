@@ -180,7 +180,10 @@ arena_podman_env(){
         echo "arena: podman API socket $sock is not running, run: $ctl enable --now podman.socket" >&2
         return 1
     fi
-    ARENA_USERNS_MODE=host
-    [ "$rootless" = true ] && ARENA_USERNS_MODE=keep-id
-    export ARENA_DOCKER_SOCK=$sock ARENA_USERNS_MODE
+    ARENA_USERNS_MODE=host ARENA_CONTAINER_USER=$HOST_UID
+    [ "$rootless" = true ] && ARENA_USERNS_MODE="" ARENA_CONTAINER_USER=0
+    if grep -qE '^(ARENA_USERNS_MODE|ARENA_DOCKER_SOCK)=' "$ARENA_ENV_FILE" 2>/dev/null; then
+        sed -i -E '/^(ARENA_USERNS_MODE|ARENA_DOCKER_SOCK)=/d' "$ARENA_ENV_FILE"
+    fi
+    export ARENA_DOCKER_SOCK=$sock ARENA_USERNS_MODE ARENA_CONTAINER_USER
 }

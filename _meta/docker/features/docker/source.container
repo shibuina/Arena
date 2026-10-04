@@ -5,9 +5,9 @@ export ARENA_DIR="$ARENA_WS_DIR/src/Arena"
 export ARENA_VENV_DIR="/opt/venv"
 export ARENA_CONTAINER=1
 
-HOST_UID=$(id -u)
+HOST_UID=${HOST_UID:-$(id -u)}
 export HOST_UID
-HOST_GID=$(id -g)
+HOST_GID=${HOST_GID:-$(id -g)}
 export HOST_GID
 
 export arena_compose_sudo="sudo -E"
