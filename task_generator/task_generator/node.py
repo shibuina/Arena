@@ -1201,9 +1201,9 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             tm_modules = current_modules if overrides.keep_modules else overrides.tm_modules
 
         if tm_robots and tm_robots != current_robots:
-            self.rosparam[str].set("tm_robots", tm_robots)
+            self.rosparam[str].set("task.robots", tm_robots)
         if tm_obstacles and tm_obstacles != current_obstacles:
-            self.rosparam[str].set("tm_obstacles", tm_obstacles)
+            self.rosparam[str].set("task.obstacles", tm_obstacles)
 
         self._episodes.current = EpisodeRecord(
             episode_id=new_id,

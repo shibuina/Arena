@@ -55,7 +55,7 @@ callable that imports and returns the class) plus a `TaskModeMeta` (namespace
 invoking the loader, so the impl module is not imported until the mode is
 first selected.
 
-`Task.__init__` reads `tm_robots`, `tm_obstacles`, and `tm_modules` from the
+`Task.__init__` reads `task.robots`, `task.obstacles`, and `task.modules` from the
 ROS parameter server (via `node.conf.TaskMode.*`) and calls the matching
 loaders. On each reset `Task._reset_episode` re-reads the parameters, swapping
 the active mode if it changed.

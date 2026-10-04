@@ -131,7 +131,7 @@ class Nav2Adapter(MobileAdapter):
         node_paths: set[str],
     ) -> None:
         # TMP: remove once rosnavrl decoupled from nav
-        if robot.node.rosparam[bool].get("train_mode", False):
+        if robot.node.rosparam[bool].get("robot.train", False):
             await super().wait_until_ready(robot, node_paths)
             return
         bt_node_path = str(robot.namespace("bt_navigator"))

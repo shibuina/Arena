@@ -1,4 +1,4 @@
-"""Deprecated task-generator parameters land on their task.episode.* replacements."""
+"""Deprecated task-generator parameters land on their replacements."""
 
 from __future__ import annotations
 

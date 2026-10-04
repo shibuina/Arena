@@ -35,6 +35,12 @@ DEPRECATED_PARAMS: dict[str, str] = {
     'goal_tolerance_radius': 'task.episode.goto_pose.tolerance.radius',
     'goal_tolerance_angle': 'task.episode.goto_pose.tolerance.angle',
     'no_progress_timeout': 'task.episode.goto_pose.timeout.no_progress',
+    'tm_robots': 'task.robots',
+    'tm_obstacles': 'task.obstacles',
+    'tm_config': 'task.config',
+    'tm_modules': 'task.modules',
+    'train_mode': 'robot.train',
+    'static_sounds': 'auditory.static_sounds',
 }
 
 
@@ -149,20 +155,20 @@ def Configuration(server: ROSParamServer) -> type:
 
         class TaskMode:
             TM_ROBOTS = server.ROSParam[Constants.TaskMode.TM_Robots](
-                'tm_robots',
+                'task.robots',
                 Constants.TaskMode.TM_Robots.default().value,
                 parse=Constants.TaskMode.TM_Robots,
             )
 
             TM_OBSTACLES = server.ROSParam[Constants.TaskMode.TM_Obstacles](
-                'tm_obstacles',
+                'task.obstacles',
                 Constants.TaskMode.TM_Obstacles.default().value,
                 parse=Constants.TaskMode.TM_Obstacles,
             )
 
-            TM_CONFIG = server.ROSParam[str]('tm_config', '')
+            TM_CONFIG = server.ROSParam[str]('task.config', '')
 
-            TM_MODULES = server.ROSParam[set[Constants.TaskMode.TM_Module]]('tm_modules', ','.join([m.value for m in Constants.TaskMode.TM_Module.default()]), parse=lambda x: {Constants.TaskMode.TM_Module(m) for m in x.split(',') if m != ''})
+            TM_MODULES = server.ROSParam[set[Constants.TaskMode.TM_Module]]('task.modules', ','.join([m.value for m in Constants.TaskMode.TM_Module.default()]), parse=lambda x: {Constants.TaskMode.TM_Module(m) for m in x.split(',') if m != ''})
 
     return Config
 

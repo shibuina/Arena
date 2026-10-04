@@ -35,10 +35,6 @@ class Constants:
             PROMPT = "prompt"
 
             @classmethod
-            def prefix(cls, *args: object) -> Namespace:
-                return Namespace("tm_obstacles")(*args)
-
-            @classmethod
             def default(cls) -> "Constants.TaskMode.TM_Obstacles":
                 return cls.RANDOM
 
@@ -53,10 +49,6 @@ class Constants:
             CHARACTERIZATION = "characterization"
 
             @classmethod
-            def prefix(cls, *args: object) -> Namespace:
-                return Namespace("tm_robots")(*args)
-
-            @classmethod
             def default(cls) -> "Constants.TaskMode.TM_Robots":
                 return cls.RANDOM
 
@@ -67,10 +59,6 @@ class Constants:
             CLEAR_FORBIDDEN_ZONES = "clear_forbidden_zones"
             RVIZ_UI = "rviz_ui"
             SOUNDS = "sounds"
-
-            @classmethod
-            def prefix(cls, *args: object) -> Namespace:
-                return Namespace("tm_module")(*args)
 
             @classmethod
             def default(cls) -> set["Constants.TaskMode.TM_Module"]:

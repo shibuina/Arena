@@ -282,14 +282,14 @@ class Mod_Sounds(TM_Module):
         )
 
     def _configured_sounds(self) -> list[Sound]:
-        if not self.node.has_parameter("static_sounds"):
+        if not self.node.has_parameter("auditory.static_sounds"):
             return []
-        raw = str(self.node.get_parameter("static_sounds").value).strip()
+        raw = str(self.node.get_parameter("auditory.static_sounds").value).strip()
         parsed = yaml.safe_load(raw) if raw else []
         if parsed is None:
             parsed = []
         if not isinstance(parsed, list):
-            raise ValueError("static_sounds must be a YAML list of sound entries")
+            raise ValueError("auditory.static_sounds must be a YAML list of sound entries")
         return [_sounding_by_default(snd) for snd in converter.structure(parsed, list[Sound])]
 
     def _warn_if_inert(self, snd: Sound, realized_name: str) -> None:

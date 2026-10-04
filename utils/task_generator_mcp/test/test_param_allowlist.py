@@ -62,7 +62,7 @@ def test_bool_param_type():
 
 
 def test_allowlist_does_not_contain_train_mode():
-    assert "train_mode" not in EPISODE_PARAMS
+    assert "robot.train" not in EPISODE_PARAMS
 
 
 def test_static_config_params_coverage():

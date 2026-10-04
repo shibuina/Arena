@@ -89,12 +89,12 @@ Declared directly on `TaskGenerator` at construction time, not via `Configuratio
 | `run_seed` | random uuid hex | Hex string for per-episode blake2b seed derivation |
 | `episode_history_size` | `10` | Bounded history length for `state/episode` |
 
-`train_mode` is declared at the launch level (`robot.train`) and exposed on the task_generator node's param store for robot adapters (`rosnav_rl`, `nav2`) to read, the node itself does not branch on it. For managed (external-controller-driven) resets pass `task.episode.auto_reset:=false` explicitly, there is no auto-derivation from `train_config`.
+`robot.train` is declared at the launch level and exposed on the task_generator node's param store for robot adapters (`rosnav_rl`, `nav2`) to read, the node itself does not branch on it. For managed (external-controller-driven) resets pass `task.episode.auto_reset:=false` explicitly, there is no auto-derivation from `train_config`.
 
 ### `Config.TaskMode`
 
 | Attribute | ROS param | Default | Type |
 | --- | --- | --- | --- |
-| `TM_ROBOTS` | `tm_robots` | `random` | `Constants.TaskMode.TM_Robots` |
-| `TM_OBSTACLES` | `tm_obstacles` | `random` | `Constants.TaskMode.TM_Obstacles` |
-| `TM_MODULES` | `tm_modules` | `''` | `set[Constants.TaskMode.TM_Module]`; comma-separated string |
+| `TM_ROBOTS` | `task.robots` | `random` | `Constants.TaskMode.TM_Robots` |
+| `TM_OBSTACLES` | `task.obstacles` | `random` | `Constants.TaskMode.TM_Obstacles` |
+| `TM_MODULES` | `task.modules` | `''` | `set[Constants.TaskMode.TM_Module]`; comma-separated string |
