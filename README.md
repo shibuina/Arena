@@ -108,6 +108,19 @@ ruff check .              # check without pre-commit
 
 If the hook auto-fixes something, the commit is aborted and the fixes are left unstaged, `git add` and re-commit.
 
+### Python dependencies
+
+Each Arena package declares the pip packages it imports in the `[project]` table of its own `pyproject.toml`. Versions and dependencies live only there, `setup.py` keeps the ament glue. `arena update` composes the packages present in your checkout into one uv workspace (`.uv-workspace/`, generated) and syncs it into the venv. Every repo tracks a `uv.lock` derived from the full-tree lock, so a submodule such as `arena_planners` reproduces the same versions standalone with `uv sync`.
+
+Locks follow manifest edits on their own: a commit that stages a `pyproject.toml` or `setup.py` relocks and stages the regenerated `uv.lock`. In this repo that runs through pre-commit, in submodules through `core.hooksPath`, which `arena update` sets. Relocking needs a full tree (all submodules initialized) and `uv` on `PATH`. Without them the hook skips and the `uv-workspace` check flags the stale lock. Locks the hook touched in other repos are listed for you to commit there.
+
+To move versions on purpose, on a full tree:
+```bash
+python3 _meta/tools/uv_workspace.py lock --upgrade-package NAME   # one package
+python3 _meta/tools/uv_workspace.py lock --upgrade                # everything
+```
+then commit the changed `uv.lock` files, submodules first.
+
 ### CI
 
 [`.github/workflows/lint.yml`](.github/workflows/lint.yml) runs the same pre-commit hooks on every push to `jazzy` and every pull request targeting it. The GH check uses the exact config and hook pins from `.pre-commit-config.yaml`, so local and CI never drift. Make the check required in branch protection to block merges on lint failures.

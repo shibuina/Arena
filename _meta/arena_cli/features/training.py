@@ -1,6 +1,7 @@
 """training feature: arena_training + rosnav_rl for DRL navigation."""
 
 import os
+import sys
 
 from arena_cli import common
 from arena_cli.common import Verb, make_verb
@@ -13,7 +14,7 @@ DESCRIPTION = "arena_training + rosnav_rl for DRL-based navigation.\n\nThis enab
 
 
 def _update() -> int:
-    """Pull arena_training and rosnav_rl submodules, install, and rebuild."""
+    """Pull arena_training and rosnav_rl submodules, sync python deps, and rebuild."""
     import subprocess
 
     arena_dir = common._env("ARENA_DIR")
@@ -35,10 +36,12 @@ def _update() -> int:
     if rc:
         return rc
 
-    python_bin = os.path.join(common._env("ARENA_VENV_DIR"), "bin", "python")
+    rc = subprocess.run([sys.executable, os.path.join(arena_dir, "_meta", "tools", "uv_workspace.py"), "compose"], check=False).returncode
+    if rc:
+        return rc
     rc = subprocess.run(
-        ["uv", "pip", "install", "--python", python_bin, "-e", ".", "-e", "./deps/rosnav_rl/rosnav_rl"],
-        cwd=arena_training_dir,
+        ["uv", "sync", "--inexact", "--all-packages", "--project", os.path.join(arena_dir, ".uv-workspace")],
+        env={**os.environ, "UV_PROJECT_ENVIRONMENT": common._env("ARENA_VENV_DIR")},
         check=False,
     ).returncode
     if rc:
