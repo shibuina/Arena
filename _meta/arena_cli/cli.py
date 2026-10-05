@@ -293,7 +293,7 @@ def cam(args: list[str]) -> None:
 
 
 _LOCKSTEP_PRESETS = {
-    "engine": {"name": "engine", "topic": "/arena/{env}/task_generator_node/agent_states", "type": "arena_humansim_msgs/msg/AgentStates", "period_s": 0.05, "hard": True},
+    "engine": {"name": "engine", "topic": "/arena/{env}/task_generator_node/agent_states", "type": "arena_humansim_msgs/msg/AgentFrame", "period_s": 0.05, "hard": True},
     "peds": {"name": "peds", "topic": "/arena/{env}/arena_peds", "type": "arena_people_msgs/msg/Pedestrians", "period_s": 0.15, "hard": True},
 }
 

@@ -1,12 +1,19 @@
 """Task generator adapter for arena_humansim."""
 
+import array
 import asyncio
-import copy
 import math
 import traceback
 from collections.abc import Mapping, Sequence
 
+import numpy as np
 import yaml
+from arena_humansim_msgs.msg import (
+    AgentFrame as AgentFrameMsg,
+)
+from arena_humansim_msgs.msg import (
+    AgentGestures as AgentGesturesMsg,
+)
 from arena_humansim_msgs.msg import (
     AgentState as AgentStateMsg,
 )
@@ -15,6 +22,9 @@ from arena_humansim_msgs.msg import (
 )
 from arena_humansim_msgs.msg import (
     AgentTemplate as AgentTemplateMsg,
+)
+from arena_humansim_msgs.msg import (
+    Gesture as EngineGestureMsg,
 )
 from arena_humansim_msgs.msg import (
     ObstacleConfig as ObstacleConfigMsg,
@@ -83,7 +93,8 @@ from geometry_msgs.msg import (
 )
 from rcl_interfaces.msg import Parameter as ParameterMsg
 from rcl_interfaces.msg import ParameterType
-from rcl_interfaces.srv import GetParameters, SetParametersAtomically
+from rcl_interfaces.srv import GetParameters, SetParameters, SetParametersAtomically
+from rclpy.parameter import Parameter
 from rclpy.qos import (
     QoSDurabilityPolicy,
     QoSHistoryPolicy,
@@ -94,6 +105,7 @@ from visualization_msgs.msg import MarkerArray
 
 from task_generator.constants import Constants
 from task_generator.constants.rng import stable_int
+from task_generator.manager.realizer import Realizer
 from task_generator.shared import Door, DynamicObstacle, Obstacle, Pose, Position, Region, Robot, Wall
 from task_generator.simulators.human import BaseHumanSimulator
 from task_generator.simulators.human.arena_humansim import ArenaHumanDynamicObstacle, resolve_agent_type_path
@@ -212,6 +224,12 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             SetParametersAtomically,
             self.node.service_namespace("arena_humansim", "set_parameters_atomically"),
         )
+        self._set_viz_params_client: ClientWrapper = self.node.create_client_wrapper(
+            SetParameters,
+            self.node.service_namespace("arena_humansim_viz", "set_parameters"),
+        )
+        self._viz_config: Realizer._Configuration | None = None
+        self._viz_config_task: asyncio.Task[None] | None = None
         self._publish_pending = False
         self._notify_stimulus_client: ClientWrapper = self.node.create_client_wrapper(
             NotifyStimulus,
@@ -221,8 +239,9 @@ class ArenaHumanSimulator(BaseHumanSimulator):
         self._next_id: int = 1
 
         self._agents_lock: asyncio.Lock = asyncio.Lock()
-        self._prev_agent_states: AgentStatesMsg | None = None
-        self._curr_agent_states: AgentStatesMsg | None = None
+        self._prev_agent_states: AgentFrameMsg | None = None
+        self._curr_agent_states: AgentFrameMsg | None = None
+        self._agent_gestures: dict[int, list[EngineGestureMsg]] = {}
         self._arena_pedestrians: Pedestrians = Pedestrians()
         self._arena_pedestrians.header.frame_id = "map"
         self._dirty_robots: dict[str, Robot] = {}
@@ -247,7 +266,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
 
         # Subscribe to agent_states topic from arena_humansim
         self.node.create_subscription(
-            AgentStatesMsg,
+            AgentFrameMsg,
             self.node.service_namespace("agent_states"),
             self._agent_states_callback,
             10,
@@ -293,6 +312,12 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             lambda msg: self._static_objects_pub.publish(self._markers_from_engine(msg)),
             static_qos,
         )
+        self.node.create_subscription(
+            AgentGesturesMsg,
+            self.node.service_namespace("agent_gestures"),
+            self._agent_gestures_callback,
+            static_qos,
+        )
 
     def _forward_debug_markers(self, msg: MarkerArray):
         self.publish_markers(self._markers_from_engine(msg))
@@ -305,7 +330,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             marker.pose.position.y += cfg.y
         return msg
 
-    def _agent_states_callback(self, msg: AgentStatesMsg):
+    def _agent_states_callback(self, msg: AgentFrameMsg):
         """Cache prev/curr snapshots from arena_humansim for local interpolation."""
         self._prev_agent_states = self._curr_agent_states
         self._curr_agent_states = msg
@@ -317,9 +342,30 @@ class ArenaHumanSimulator(BaseHumanSimulator):
         loop = self.node.event_loop
         loop.call_soon_threadsafe(lambda: loop.create_task(self._publish_on_receipt()))
 
+    def _agent_gestures_callback(self, msg: AgentGesturesMsg):
+        """Group the latest engine gestures by owner."""
+        grouped: dict[int, list[EngineGestureMsg]] = {}
+        for agent_id, gesture in zip(msg.agent_id, msg.gestures, strict=True):
+            grouped.setdefault(agent_id, []).append(gesture)
+        self._agent_gestures = grouped
+
     async def _publish_on_receipt(self) -> None:
         self._publish_pending = False
+        cfg = self._realizer.get_config()
+        if cfg != self._viz_config and (self._viz_config_task is None or self._viz_config_task.done()):
+            self._viz_config_task = asyncio.create_task(self._configure_viz(cfg))
         await self._publish_interpolated()
+
+    async def _configure_viz(self, cfg: Realizer._Configuration) -> None:
+        """Point the engine's marker node at this env's marker topic, shifted by the env offset."""
+        parameters = [
+            Parameter("output_topic", value=self._marker_publisher.topic_name).to_parameter_msg(),
+            Parameter("offset_x", value=float(cfg.x)).to_parameter_msg(),
+            Parameter("offset_y", value=float(cfg.y)).to_parameter_msg(),
+        ]
+        response = await self._set_viz_params_client.call_timeout(SetParameters.Request(parameters=parameters))
+        if response is not None and all(result.successful for result in response.results):
+            self._viz_config = cfg
 
     async def _publish_interpolated(self) -> None:
         """Interpolate at the current sim time and publish the roster."""
@@ -332,7 +378,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             self._arena_pedestrians = peds
         self.publish_arena_peds(peds)
 
-    def _interpolate_agent_states(self, now_ns: int) -> AgentStatesMsg | None:
+    def _interpolate_agent_states(self, now_ns: int) -> AgentFrameMsg | None:
         """Lerp between prev and curr agent states at the given timestamp."""
         curr = self._curr_agent_states
         if curr is None:
@@ -349,36 +395,24 @@ class ArenaHumanSimulator(BaseHumanSimulator):
 
         alpha = max(0.0, min(1.0, (now_ns - prev_ns) / dt_ns))
         inv = 1.0 - alpha
-        prev_by_id = {a.agent_id: a for a in prev.agents}
+        _, ci, pi = np.intersect1d(np.asarray(curr.agent_id), np.asarray(prev.agent_id), assume_unique=True, return_indices=True)
 
         # stamp with the time the lerped pose corresponds to, receivers dead-reckon from it
         pose_ns = prev_ns + int(alpha * dt_ns)
-        msg = AgentStatesMsg()
+        msg = AgentFrameMsg(**{field: getattr(curr, field) for field in curr.get_fields_and_field_types() if field != "header"})
         msg.header.stamp.sec = int(pose_ns // int(1e9))
         msg.header.stamp.nanosec = int(pose_ns % int(1e9))
         msg.header.frame_id = "map"
 
-        for curr_a in curr.agents:
-            prev_a = prev_by_id.get(curr_a.agent_id)
-            if prev_a is None:
-                msg.agents.append(curr_a)
-                continue
-            a = copy.deepcopy(curr_a)
-            d_theta = math.atan2(
-                math.sin(curr_a.pose.theta - prev_a.pose.theta),
-                math.cos(curr_a.pose.theta - prev_a.pose.theta),
-            )
-            a.pose = Pose2DMsg(
-                x=inv * prev_a.pose.x + alpha * curr_a.pose.x,
-                y=inv * prev_a.pose.y + alpha * curr_a.pose.y,
-                theta=prev_a.pose.theta + alpha * d_theta,
-            )
-            a.velocity = Vector3(
-                x=inv * prev_a.velocity.x + alpha * curr_a.velocity.x,
-                y=inv * prev_a.velocity.y + alpha * curr_a.velocity.y,
-                z=0.0,
-            )
-            msg.agents.append(a)
+        for field in ("x", "y", "vx", "vy"):
+            values = np.array(getattr(curr, field))
+            values[ci] = inv * np.asarray(getattr(prev, field))[pi] + alpha * values[ci]
+            setattr(msg, field, array.array("d", values.tobytes()))
+        theta = np.array(curr.theta)
+        prev_theta = np.asarray(prev.theta)[pi]
+        d_theta = np.arctan2(np.sin(theta[ci] - prev_theta), np.cos(theta[ci] - prev_theta))
+        theta[ci] = prev_theta + alpha * d_theta
+        msg.theta = array.array("d", theta.tobytes())
         return msg
 
     _ENGINE_DT_DEFAULT = 0.05
@@ -449,7 +483,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
                 LockstepChannel(
                     name="engine",
                     topic=str(self.node.service_namespace("agent_states")),
-                    type="arena_humansim_msgs/msg/AgentStates",
+                    type="arena_humansim_msgs/msg/AgentFrame",
                     period_s=engine_dt,
                     hard=True,
                 ),
@@ -487,7 +521,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
         self._feedback_loop_task = asyncio.create_task(self._feedback_loop())
 
     @property
-    def agent_states(self) -> AgentStatesMsg | None:
+    def agent_states(self) -> AgentFrameMsg | None:
         return self._curr_agent_states
 
     TICK_RATE = 50.0  # Hz, local interpolation rate
@@ -524,12 +558,12 @@ class ArenaHumanSimulator(BaseHumanSimulator):
         obs.sim_path = self._realizer.prefix(name)
         return obs
 
-    def _make_flow_dynamic_obstacle(self, agent: AgentStateMsg) -> DynamicObstacle:
-        """Create a DynamicObstacle for a source-spawned agent using a default model."""
+    def _make_flow_dynamic_obstacle(self, frame: AgentFrameMsg, i: int) -> DynamicObstacle:
+        """Create a DynamicObstacle for the source-spawned agent at index i using a default model."""
         return self._runtime_obstacle(
-            name=f"flow_{agent.agent_id}",
-            pose=Pose(Position(*self._from_engine(agent.pose.x, agent.pose.y))),
-            velocity=agent.desired_velocity,
+            name=f"flow_{frame.agent_id[i]}",
+            pose=Pose(Position(*self._from_engine(frame.x[i], frame.y[i]))),
+            velocity=frame.desired_velocity[i],
         )
 
     # The engine runs in the world frame (authored coordinates, levels laid out), this adapter owns the env offset:
@@ -583,17 +617,17 @@ class ArenaHumanSimulator(BaseHumanSimulator):
 
                     states = self._curr_agent_states
                     if states is not None:
-                        current_ids = {a.agent_id for a in states.agents}
+                        current_ids = set(states.agent_id)
                         flow_ids = current_ids - self._bridge_agent_ids
                         new_ids = flow_ids - self._flow_agent_ids
                         gone_ids = self._flow_agent_ids - current_ids
 
                         if new_ids:
-                            agents_by_id = {a.agent_id: a for a in states.agents}
+                            index_by_id = {aid: i for i, aid in enumerate(states.agent_id)}
                             to_spawn: list[DynamicObstacle] = []
                             for aid in sorted(new_ids):
                                 self._flow_agent_ids.add(aid)
-                                obs = self._make_flow_dynamic_obstacle(agents_by_id[aid])
+                                obs = self._make_flow_dynamic_obstacle(states, index_by_id[aid])
                                 self._agent_names[aid] = obs.sim_path
                                 to_spawn.append(obs)
                             await self._simulator.pedestrian_spawn(await self._ensure_spawnable(to_spawn))
@@ -652,18 +686,18 @@ class ArenaHumanSimulator(BaseHumanSimulator):
         self._dirty_robots.clear()
         self._world_state_pub.publish(msg)
 
-    def _agent_states_to_pedestrians(self, msg: AgentStatesMsg) -> Pedestrians:
+    def _agent_states_to_pedestrians(self, msg: AgentFrameMsg) -> Pedestrians:
         peds = Pedestrians()
         peds.header = msg.header
-        for agent in msg.agents:
+        gestures_by_id = self._agent_gestures
+        for agent_id, ex, ey, yaw, vx, vy, animation_state in zip(msg.agent_id, msg.x, msg.y, msg.theta, msg.vx, msg.vy, msg.animation_state, strict=True):
             ped = Pedestrian()
-            ped.id = agent.agent_id
-            ped.name = self._agent_names.get(agent.agent_id, str(agent.agent_id))
+            ped.id = agent_id
+            ped.name = self._agent_names.get(agent_id, str(agent_id))
 
-            yaw = agent.pose.theta
-            x, y = self._from_engine(agent.pose.x, agent.pose.y)
+            x, y = self._from_engine(ex, ey)
 
-            gestures = [GestureMsg(slot=g.slot, at=Point(x=gx, y=gy, z=g.at.z), clip=g.clip, hand=g.hand, render_pose_override=g.render_pose_override) for g in agent.gestures for gx, gy in (self._from_engine(g.at.x, g.at.y),)]
+            gestures = [GestureMsg(slot=g.slot, at=Point(x=gx, y=gy, z=g.at.z), clip=g.clip, hand=g.hand, render_pose_override=g.render_pose_override) for g in gestures_by_id.get(agent_id, ()) for gx, gy in (self._from_engine(g.at.x, g.at.y),)]
 
             # contact kinds (hug, handshake) draw on the formation slot, physics stays put
             override = next((g for g in gestures if g.slot == "body" and g.render_pose_override), None)
@@ -677,9 +711,9 @@ class ArenaHumanSimulator(BaseHumanSimulator):
                     w=math.cos(yaw / 2.0),
                 ),
             )
-            ped.twist = Twist(linear=agent.velocity)
+            ped.twist = Twist(linear=Vector3(x=vx, y=vy, z=0.0))
 
-            ped.animation_state = agent.animation_state
+            ped.animation_state = animation_state
             ped.gestures = gestures
 
             peds.pedestrians.append(ped)
@@ -1027,6 +1061,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             self._ped_model_uris.clear()
             self._prev_agent_states = None
             self._curr_agent_states = None
+            self._agent_gestures = {}
             self._arena_pedestrians = Pedestrians()
             self._arena_pedestrians.header.frame_id = "map"
             if response.success:

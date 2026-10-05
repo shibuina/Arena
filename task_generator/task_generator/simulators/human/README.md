@@ -76,7 +76,7 @@ The filled field feeds the ROS4HRI skeleton in rviz through `hri_producer` and t
 
 `Pedestrian.gestures` (`arena_people_msgs/Gesture[]`: `slot` in `head|arm|arm_l|arm_r|body`, `at` world-frame
 point for the aimed slots, `clip` name on `body`, `hand` on `arm`) are attention channels, not poses. Backends
-only forward them (arena_humansim copies `AgentState.gestures` one to one, the possession stream carries them
+only forward them (arena_humansim copies `AgentGestures` per owner one to one, the possession stream carries them
 as-is), and `publish_arena_peds` hands them per ped to the [`GestureLayer`](gestures/__init__.py) as a
 `GestureRequest` (a `Channel(slot, at, clip, hand)` per entry, ped pose, moving flag). The layer resolves each
 aimed target into the ped frame once per clip, asks the slot's generator for frames (`head` -> `look`,
@@ -99,7 +99,7 @@ env level (`<env_ns>/`) and shared by every backend:
 | --- | --- | --- | --- |
 | `arena_peds` | each backend (`publish_arena_peds`) | reliable, volatile | Pedestrian state feed (positions/velocities/joint_state). `joint_state` carries bare semantic joint names filled by `GaitGenerator` unless the backend overrides it (non-empty = upstream wins). |
 | `humans/bodies/tracked`, `humans/persons/*`, `humans/bodies/<id>/joint_states` | `hri_producer` node | per REP-155 | **Canonical** ROS4HRI projection of `arena_peds`: id lists, per-person engagement, per-body joint states, per-body URDF on param `human_description_<id>`, TF `body_<id>`. |
-| `pedestrian_markers/extra` | base class (`publish_markers`) | best-effort, volatile | Backend-internal debug overlay (e.g. arena_humansim forwards its planner viz). Off by default. |
+| `pedestrian_markers/extra` | base class (`publish_markers`) | best-effort, volatile | Backend-internal debug overlay (e.g. arena_humansim forwards its module markers and retargets `arena_humansim_viz_node` here with the env offset). Off by default. |
 | `pedestrian_markers/static` | base class (`publish_static_markers`) | reliable, transient-local, depth 1 | Latched static scene as one combined topic. |
 | `pedestrian_markers/static_*` | adapter | reliable, transient-local, depth 1 | Latched static scene split per bucket (`/static_walls`, `/static_objects`, ...). |
 
