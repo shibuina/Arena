@@ -98,10 +98,25 @@ class ConfigFileGenerator(ArenaMixinNode):
 
         rviz_parameters: list[dict[str, object]] = [{"use_sim_time": True}]
 
+        env_ns = os.path.dirname(self._TASKGEN_NODE)
+        viewer_tf = f"{env_ns}/viewer/tf"
+
         launch_task = await self._launch_manager.launch_description(
             launch.LaunchDescription(
                 [
                     NodeLogLevelExtension.SetGlobalLogLevelAction(rclpy.logging.get_logger_effective_level(self.get_logger().name).name.lower()),
+                    *(
+                        launch_ros.actions.Node(
+                            package="topic_tools",
+                            executable="relay",
+                            name=f"viewer_tf_{name}",
+                            namespace=self._TASKGEN_NODE,
+                            parameters=[{"input_topic": source, "output_topic": viewer_tf, "lazy": True}],
+                            sigterm_timeout='2',
+                            sigkill_timeout='2',
+                        )
+                        for name, source in (("world", self._tf_namespace + "/tf"), ("humans", f"{env_ns}/humans/tf"))
+                    ),
                     launch_ros.actions.Node(
                         package="rviz2",
                         executable="rviz2",
@@ -109,7 +124,7 @@ class ConfigFileGenerator(ArenaMixinNode):
                         namespace=self._TASKGEN_NODE,
                         arguments=['-d', config_file],
                         parameters=rviz_parameters,
-                        remappings=[(topic, self._tf_namespace + topic) for topic in ('/tf', '/tf_static')] if self._tf_namespace else None,
+                        remappings=[('/tf', viewer_tf), ('/tf_static', self._tf_namespace + '/tf_static')],
                         output="screen",
                         sigterm_timeout='2',
                         sigkill_timeout='2',

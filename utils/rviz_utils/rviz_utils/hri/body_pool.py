@@ -147,7 +147,9 @@ class BodyPool:
             f"__node:=rsp_{body_id}",
             "--remap",
             f"joint_states:={joint_states_topic}",
-            *(arg for src, dst in tf_remaps(self._node) for arg in ("--remap", f"{src}:={dst}")),
+            "--remap",
+            f"/tf:={self._humans_ns}/tf",
+            *(arg for src, dst in tf_remaps(self._node) if src != "/tf" for arg in ("--remap", f"{src}:={dst}")),
         ]
         proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL)
         _LOG.debug("spawned rsp pid=%d for body %s", proc.pid, body_id)
