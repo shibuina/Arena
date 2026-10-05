@@ -2749,11 +2749,18 @@ dependencies = [
     { name = "pyyaml" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "numpy" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=7" },
     { name = "pyyaml" },
 ]
+provides-extras = ["test"]
 
 [[package]]
 name = "safetensors"

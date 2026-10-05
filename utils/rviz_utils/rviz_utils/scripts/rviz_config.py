@@ -16,7 +16,7 @@ import rclpy
 import rclpy.parameter
 import yaml
 from ament_index_python.packages import PackageNotFoundError, get_package_share_directory
-from arena_rclpy_mixins import ArenaMixinNode
+from arena_rclpy_mixins import ArenaMixinNode, ClientWrapper
 from arena_rclpy_mixins.shared import FrameNamespace
 from arena_robots.moveit_factory import build_moveit_params
 from arena_robots.Robot import RobotIdentifier
@@ -45,19 +45,20 @@ class ConfigFileGenerator(ArenaMixinNode):
 
     async def _await_param(
         self,
-        client: rclpy.client.Client,
+        client: ClientWrapper,
         param_name: str,
         test_fn: Callable[[rcl_interfaces.msg.ParameterValue], bool] | None = None,
         interval: float = 1.0,
+        call_timeout: float = 2.0,
     ) -> rcl_interfaces.msg.ParameterValue:
-        """Block until parameter passes test function."""
+        """Poll until the parameter is set and passes test_fn, re-sending calls whose response never arrives."""
         while True:
             self.get_logger().info(f'waiting for {param_name} to be set')
             req = rcl_interfaces.srv.GetParameters.Request(names=[param_name])
-            params = await self.await_ros(client.call_async(req))
-            if params and params.values:
+            params = await client.call_timeout(req, timeout_sec=call_timeout)
+            if params is not None and params.values:
                 value = params.values[0]
-                if (not test_fn) or test_fn(value):
+                if value.type != rcl_interfaces.msg.ParameterType.PARAMETER_NOT_SET and ((not test_fn) or test_fn(value)):
                     self.get_logger().info(f'param {param_name} is set')
                     return value
             await asyncio.sleep(interval)
@@ -65,9 +66,9 @@ class ConfigFileGenerator(ArenaMixinNode):
     async def setup(self) -> None:
         TASKGEN_PARAM_SRV = os.path.join(self._TASKGEN_NODE, 'get_parameters')
 
-        get_parameters_cli = self.create_client(rcl_interfaces.srv.GetParameters, TASKGEN_PARAM_SRV)
+        get_parameters_cli = self.create_client_wrapper(rcl_interfaces.srv.GetParameters, TASKGEN_PARAM_SRV)
         self.get_logger().info(f'waiting for service {TASKGEN_PARAM_SRV} to become available')
-        await self.wait_for_service_async(get_parameters_cli)
+        await self.wait_for_service_async(get_parameters_cli.client)
         self.get_logger().info(f'service {TASKGEN_PARAM_SRV} is available')
 
         self._frame_prefix = (await self._await_param(get_parameters_cli, 'prefix')).string_value
@@ -110,11 +111,17 @@ class ConfigFileGenerator(ArenaMixinNode):
                         parameters=rviz_parameters,
                         remappings=[(topic, self._tf_namespace + topic) for topic in ('/tf', '/tf_static')] if self._tf_namespace else None,
                         output="screen",
+                        sigterm_timeout='2',
+                        sigkill_timeout='2',
                     ),
                 ]
             )
         )
-        await launch_task
+        try:
+            await asyncio.shield(launch_task.task)
+        except asyncio.CancelledError:
+            await launch_task.shutdown()
+            raise
         self.get_logger().info('rviz2 exited, shutting down supervisor')
         os.kill(os.getpid(), signal.SIGINT)
 
