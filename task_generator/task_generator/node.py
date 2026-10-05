@@ -4,6 +4,7 @@ import contextlib
 import hashlib
 import json
 import random
+import threading
 import traceback
 import typing
 import uuid
@@ -38,6 +39,8 @@ from rcl_interfaces.msg import IntegerRange, ParameterDescriptor, ParameterValue
 from rcl_interfaces.msg import Parameter as RclParameter
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.exceptions import InvalidHandle
+from rclpy.impl.implementation_singleton import rclpy_implementation
 from rclpy.lifecycle import TransitionCallbackReturn
 from rclpy.parameter import Parameter
 from std_msgs.msg import Bool, Int16, String
@@ -300,7 +303,8 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             10,
         )
 
-        self._heartbeat_timer = self.wall_timer(1.0, self._cb_heartbeat_tick)
+        self._heartbeat_stop = threading.Event()
+        threading.Thread(target=self._heartbeat_loop, name="heartbeat", daemon=True).start()
 
         self._arena_seen = False
         self._arena_watchdog_timer = self.wall_timer(1.0, self._cb_arena_watchdog)
@@ -357,6 +361,11 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             "console_port": 20103 + offset,
         }
 
+    def _heartbeat_loop(self) -> None:
+        while not self._heartbeat_stop.wait(1.0) and rclpy.ok():
+            with contextlib.suppress(rclpy_implementation.RCLError, InvalidHandle):
+                self._cb_heartbeat_tick()
+
     def _cb_heartbeat_tick(self) -> None:
         msg = arena_runtime_msgs.msg.Heartbeat()
         msg.fqn = self.get_fully_qualified_name()
@@ -372,14 +381,14 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             return
         self.get_logger().error("/arena/state/envs publisher gone, self-shutting down")
         self._arena_watchdog_timer.cancel()
-        self._heartbeat_timer.cancel()
+        self._heartbeat_stop.set()
         rclpy.try_shutdown()
 
     def _cb_shutdown_request(self, msg: arena_runtime_msgs.msg.ShutdownRequest) -> None:
         if msg.env_id != self._env_id:
             return
         self.get_logger().info(f"shutdown request received (reason={msg.reason!r}); shutting down")
-        self._heartbeat_timer.cancel()
+        self._heartbeat_stop.set()
         rclpy.try_shutdown()
 
     async def setup(self) -> None:
@@ -438,15 +447,15 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
         return TransitionCallbackReturn.SUCCESS
 
     def on_cleanup(self, state: rclpy.lifecycle.State) -> TransitionCallbackReturn:
-        self._heartbeat_timer.cancel()
+        self._heartbeat_stop.set()
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: rclpy.lifecycle.State) -> TransitionCallbackReturn:
-        self._heartbeat_timer.cancel()
+        self._heartbeat_stop.set()
         return TransitionCallbackReturn.SUCCESS
 
     async def teardown(self) -> None:
-        self._heartbeat_timer.cancel()
+        self._heartbeat_stop.set()
         for t in (self._tick_loop_task, self._check_status_task, self._episode_task):
             if t is not None and not t.done():
                 t.cancel()
