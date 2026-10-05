@@ -17,6 +17,7 @@ services:
       - "${ARENA_DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock"
       - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
       - "/run/user/${HOST_UID}/pulse:/tmp/pulse"
+      - "/run/user/${HOST_UID}:/run/host-user:ro"
       - "shared:/tmp/shared"
       - "$HOST_ARENA_WS_DIR/src/Arena/.venv:/opt/venv"
       - "$HOST_ARENA_WS_DIR/src:/opt/arena_ws/src"
