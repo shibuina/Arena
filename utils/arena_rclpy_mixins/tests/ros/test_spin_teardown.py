@@ -52,6 +52,12 @@ def test_watchdog_deadline_exits_process():
     assert proc.returncode == 7, proc.stderr
 
 
+def test_async_main_exits_on_failing_async_callback():
+    proc = _run("callback_failure")
+    assert proc.returncode == 1, proc.stderr
+    assert "callback failed" in proc.stderr
+
+
 def test_spin_context_swallows_after_shutdown():
     proc = _run("sync_late")
     assert proc.returncode == 0, proc.stderr

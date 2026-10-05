@@ -59,6 +59,16 @@ class Deadline(ArenaMixinNode):
         time.sleep(_DEADLINE_BLOCK_S)
 
 
+class Failing(ArenaMixinNode):
+    """An async timer callback raises once the executor spins."""
+
+    async def setup(self) -> None:
+        self._timer = self.create_timer(0.05, self._fail)
+
+    async def _fail(self) -> None:
+        raise RuntimeError("callback failed")
+
+
 def main() -> None:
     mode = sys.argv[1]
     if mode == "async_storm":
@@ -67,6 +77,8 @@ def main() -> None:
         Stall.run_main("teardown_stall")
     elif mode == "watchdog_deadline":
         Deadline.run_main("teardown_deadline")
+    elif mode == "callback_failure":
+        Failing.run_main("teardown_callback_failure")
     elif mode == "sync_late":
         rclpy.init()
         with spin_context():

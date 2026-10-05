@@ -20,6 +20,7 @@ import rclpy.executors
 import rclpy.node
 from rclpy.exceptions import InvalidHandle
 from rclpy.executors import ExternalShutdownException
+from rclpy.experimental import EventsExecutor
 from rclpy.impl.implementation_singleton import rclpy_implementation as _rclpy
 from rclpy.signals import SignalHandlerOptions
 
@@ -28,6 +29,20 @@ if typing.TYPE_CHECKING:
 
 _LOOP_STALL_S = 10.0
 _LOOP_BEAT_S = 1.0
+
+
+class _EntitylessNode:
+    """Executor node slot that owns no entities."""
+
+    subscriptions = timers = clients = services = waitables = guards = ()
+    executor = None
+
+
+def create_executor() -> rclpy.executors.Executor:
+    """EventsExecutor with an entityless node slot."""
+    executor = EventsExecutor()
+    executor.add_node(_EntitylessNode())
+    return executor
 
 
 @contextlib.contextmanager
@@ -148,9 +163,9 @@ async def async_main(
     loop = asyncio.get_running_loop()
     loop.set_exception_handler(_suppress_shutdown_noise)
 
-    executor = rclpy.executors.MultiThreadedExecutor()
     node = node_factory()
     node.event_loop = loop
+    executor = create_executor()
     executor.add_node(node)
 
     watchdog_stop = start_loop_watchdog(loop, node)
@@ -238,7 +253,7 @@ async def async_main(
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(asyncio.gather(*pending, return_exceptions=True), timeout=2.0)
 
-        executor.shutdown()
+        await loop.run_in_executor(None, executor.shutdown)
         with contextlib.suppress(Exception):
             await spin_future
 

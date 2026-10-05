@@ -150,7 +150,7 @@ class _SoundState:
 class Mod_Sounds(TM_Module):
     """Render engine-owned sound state (world, launch-configured and runtime-spawned) onto the wire.
 
-    All state lives on the node's event loop: service and timer callbacks marshal via wait_for."""
+    All state lives on the node's event loop: service and timer callbacks run there via ros_callback."""
 
     def __init__(self, **kwargs: object) -> None:
         from arena_auditory_msgs.msg import ContinuousAudioSourceState
@@ -184,7 +184,7 @@ class Mod_Sounds(TM_Module):
         )
         self._timer = self.node.create_timer(
             0.1,
-            self._publish_sources,
+            self.node.ros_callback(self._publish_sources),
             clock=Clock(clock_type=ClockType.STEADY_TIME),
         )
 
@@ -294,19 +294,19 @@ class Mod_Sounds(TM_Module):
         self._warned_inert.add(realized_name)
         self._logger.warning(f"sound {snd.name!r} has neither sound_on nor a sounding value, so it stays silent until toggled: ros2 service call {self.node.service_namespace('semantics', 'set')} task_generator_msgs/srv/SetSemantic \"{{entity: {realized_name}, field: sounding, value: 'true'}}\"")
 
-    def _spawn_sound(
+    async def _spawn_sound(
         self,
         request: SpawnSound.Request,
         response: SpawnSound.Response,
     ) -> SpawnSound.Response:
         try:
-            return self._spawn_sound_impl(request, response)
+            return await self._spawn_sound_impl(request, response)
         except ValueError as exc:
             self._logger.error(f"spawning runtime sound failed:\n{traceback.format_exc()}")
             response.error_msg = f"{type(exc).__name__}: {exc}"
             return response
 
-    def _spawn_sound_impl(
+    async def _spawn_sound_impl(
         self,
         request: SpawnSound.Request,
         response: SpawnSound.Response,
@@ -447,7 +447,7 @@ class Mod_Sounds(TM_Module):
             self._sounds[realized_name] = self._build_resolved(sound, asset, realized_name, map_position, float(yaw), wire_frame)
             return realized_name
 
-        realized_name = self.node.wait_for(_spawn())
+        realized_name = await _spawn()
         if realized_name is None:
             response.error_msg = "semantics engine refused the sound"
             return response
@@ -457,7 +457,7 @@ class Mod_Sounds(TM_Module):
         self._logger.info(f"spawned {kind} source {realized_name!r} at ({map_position.x:.2f}, {map_position.y:.2f}, {map_position.z:.2f})")
         return response
 
-    def _remove_sound(
+    async def _remove_sound(
         self,
         request: RemoveSound.Request,
         response: RemoveSound.Response,
@@ -478,7 +478,7 @@ class Mod_Sounds(TM_Module):
             self.node._simulator.detach_semantics(entity_name)
             return True
 
-        if not self.node.wait_for(_remove()):
+        if not await _remove():
             response.error_msg = f"unknown or non-removable sound {entity_name!r}"
             return response
         response.success = True
@@ -526,14 +526,14 @@ class Mod_Sounds(TM_Module):
             z=z + 2.0 * (qw * uv_z + uuv_z) + float(translation.z),
         )
 
-    def _publish_sources(self) -> None:
+    async def _publish_sources(self) -> None:
         try:
-            self._publish_sources_impl()
+            await self._publish_sources_impl()
         except (TypeError, ValueError):
             self._logger.error(f"publishing static audio state failed:\n{traceback.format_exc()}")
 
-    def _publish_sources_impl(self) -> None:
-        for msg in self.node.wait_for(self._source_msgs()):
+    async def _publish_sources_impl(self) -> None:
+        for msg in await self._source_msgs():
             self._source_publisher.publish(msg)
 
     async def _source_msgs(self) -> list[ContinuousAudioSourceState]:
