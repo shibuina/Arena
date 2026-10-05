@@ -52,14 +52,14 @@ jobs:
           else
             shas=$HEAD
           fi
-          failed=0
           for sha in $shas; do
             echo "::group::$(git log -1 --format='%h %s' "$sha")"
+            git submodule deinit -q --all --force
             git checkout -q -f --detach "$sha"
+            git clean -ffdq
             git submodule update -q --init --force
             git -C arena_training submodule update -q --init --force deps/rosnav_rl
-            if pre-commit run --all-files; then state=success; else state=failure; failed=1; fi
+            if pre-commit run --all-files; then state=success; else state=failure; fi
             echo "::endgroup::"
             gh api "repos/$GITHUB_REPOSITORY/statuses/$sha" -f state="$state" -f context="lint / per commit" -f target_url="$RUN_URL" > /dev/null
           done
-          exit $failed
