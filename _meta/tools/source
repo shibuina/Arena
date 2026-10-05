@@ -143,14 +143,15 @@ if [ -z ${ARENA_SOURCED+x} ] ; then
         case "$verb" in
             build)
                 _arena_cli build "$@"
-                . "$SOURCE_FILE"
                 result=$?
+                . "$SOURCE_FILE"
             ;;
             rebuild)
-                if _arena_cli rebuild "$@"; then
+                _arena_cli rebuild "$@"
+                result=$?
+                if [ "$result" -eq 0 ]; then
                     . "$SOURCE_FILE"
                 fi
-                result=$?
             ;;
             repair)
                 if [ -f /.dockerenv ] || [ ! -f "$ARENA_VENV_DIR/.installed" ]; then
