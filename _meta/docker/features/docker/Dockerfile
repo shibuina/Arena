@@ -81,6 +81,7 @@ RUN (getent passwd ${uid} && userdel -rf $(getent passwd ${uid} | cut -d: -f1)) 
     (getent group ${gid} && groupdel -f $(getent group ${gid} | cut -d: -f1)) 2>/dev/null || true && \
     groupadd -g ${gid} ${group} && \
     useradd -m -u ${uid} -g ${gid} -s /bin/bash ${username} && \
+    touch /home/${username}/.hushlogin && \
     passwd -d ${username} && \
     passwd -d root && \
     groupadd -r sudo || true && \
