@@ -13,6 +13,8 @@ _EXPORTS = {
     'AsyncLifecycleClient': '.LifecycleClient',
     'LifecycleClient': '.LifecycleClient',
     'ArenaMixinNode': '.node',
+    'LazyPublisher': '.lazy',
+    'LazySubscription': '.lazy',
     'launch_str_to_value': '.launch_params',
     'param_value_to_launch_str': '.launch_params',
     'AsyncFactoryRegistry': '.registry',

@@ -14,10 +14,12 @@ per-body `joint_states`, URDF latched on `bodies/<id>/urdf`, and TF
 can render animated skeletons.
 
 Body and joint frames are published on `<env_ns>/humans/tf`. Nodes that
-listen only to the env's `/tf` never receive them. A consumer that needs
-pedestrians in the world tree subscribes both: `rviz_config` relays the env
-`/tf` and `<env_ns>/humans/tf` into `<env_ns>/viewer/tf` for rviz, and the
-evaluation recorder merges both into `/tf` in the bag.
+listen only to the env's `/tf` never receive them. They are published only
+while that topic has a subscriber, and `joint_states` only while it or the TF
+topic has one. A consumer that needs pedestrians in the world tree subscribes
+both: `rviz_config` relays the env `/tf` and `<env_ns>/humans/tf` into
+`<env_ns>/viewer/tf` for rviz, and the evaluation recorder merges both into
+`/tf` in the bag.
 
 **Relay mode (primary path).** When `arena_peds.joint_state.name` is non-empty,
 `hri_producer` re-suffixes each bare semantic joint name with the body ID

@@ -99,8 +99,8 @@ env level (`<env_ns>/`) and shared by every backend:
 | --- | --- | --- | --- |
 | `arena_peds` | each backend (`publish_arena_peds`) | reliable, volatile | Pedestrian state feed (positions/velocities/joint_state). `joint_state` carries bare semantic joint names filled by `GaitGenerator` unless the backend overrides it (non-empty = upstream wins). |
 | `humans/bodies/tracked`, `humans/persons/*`, `humans/bodies/<id>/joint_states` | `hri_producer` node | per REP-155 | **Canonical** ROS4HRI projection of `arena_peds`: id lists, per-person engagement, per-body joint states, per-body URDF on param `human_description_<id>`. |
-| `humans/tf` | `hri_producer` node and its `robot_state_publisher` pool | reliable, volatile | TF `body_<id>` and the joint frames, kept off the env `/tf`. |
-| `pedestrian_markers/extra` | base class (`publish_markers`) | best-effort, volatile | Backend-internal debug overlay (e.g. arena_humansim forwards its module markers and retargets `arena_humansim_viz_node` here with the env offset). Off by default. |
+| `humans/tf` | `hri_producer` node and its `robot_state_publisher` pool | reliable, volatile | TF `body_<id>` and the joint frames, kept off the env `/tf` and published only while subscribed. |
+| `pedestrian_markers/extra` | base class (`publish_markers`) | best-effort, volatile | Backend-internal debug overlay (e.g. arena_humansim forwards its module markers and retargets `arena_humansim_viz_node` here with the env offset). Off by default. The arena_humansim adapter subscribes to the engine's `viz` only while this topic has a subscriber, so an unwatched env costs the engine no marker work. |
 | `pedestrian_markers/static` | base class (`publish_static_markers`) | reliable, transient-local, depth 1 | Latched static scene as one combined topic. |
 | `pedestrian_markers/static_*` | adapter | reliable, transient-local, depth 1 | Latched static scene split per bucket (`/static_walls`, `/static_objects`, ...). |
 

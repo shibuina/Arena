@@ -77,6 +77,7 @@ from arena_humansim_msgs.srv import (
 from arena_people_msgs.msg import Gesture as GestureMsg
 from arena_people_msgs.msg import Pedestrian, Pedestrians
 from arena_rclpy_mixins.Async import ClientWrapper
+from arena_rclpy_mixins.lazy import LazySubscription
 from arena_rclpy_mixins.shared import Namespace
 from arena_runtime.sim import BaseSim
 from arena_runtime_msgs.msg import LockstepChannel
@@ -272,7 +273,9 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             10,
         )
 
-        self.node.create_subscription(
+        self._debug_markers_sub = LazySubscription(
+            self.node,
+            self._marker_publisher,
             MarkerArray,
             self.node.service_namespace("viz"),
             self._forward_debug_markers,
@@ -320,7 +323,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
         )
 
     def _forward_debug_markers(self, msg: MarkerArray):
-        self.publish_markers(self._markers_from_engine(msg))
+        self._marker_publisher.publish(lambda: self._markers_from_engine(msg))
 
     def _markers_from_engine(self, msg: MarkerArray) -> MarkerArray:
         """Engine markers into the env frame: marker poses shift, points are pose-relative and stay."""
@@ -359,7 +362,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
     async def _configure_viz(self, cfg: Realizer._Configuration) -> None:
         """Point the engine's marker node at this env's marker topic, shifted by the env offset."""
         parameters = [
-            Parameter("output_topic", value=self._marker_publisher.topic_name).to_parameter_msg(),
+            Parameter("output_topic", value=self._marker_publisher.publisher.topic_name).to_parameter_msg(),
             Parameter("offset_x", value=float(cfg.x)).to_parameter_msg(),
             Parameter("offset_y", value=float(cfg.y)).to_parameter_msg(),
         ]

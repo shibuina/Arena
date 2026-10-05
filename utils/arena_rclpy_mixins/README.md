@@ -25,6 +25,8 @@ Sourced from `__init__.py` plus the submodules it re-exports.
 | `ActionClientWrapper` | class | `send_goal()`, `send_goal_timeout()`, `await_result()`, `send_and_await()`, `cancel()`, `ensure()` | Action client with timeout wrappers |
 | `AsyncUtil` | class | `AsyncUtil.timeout(coro, sec)`: `asyncio.wait_for` that returns `None` on timeout | One-off timeout wrapper |
 | `AsyncLaunchManager` / `LaunchHandle` | class | `launch_description()` returns a `LaunchHandle` (awaitable to completion; `shutdown()` gracefully terminates child processes); `kill_all()` shuts down all | Nodes that programmatically launch sub-processes |
+| `LazyPublisher` | class | Wraps a volatile publisher: `.wanted` and `.publish(build)` build and send only while the topic has a subscriber. A latched publisher is wrapped with a warning and always sends | Viewer and debug topics whose messages are costly to build. Never lockstep channels, heartbeats or control topics |
+| `LazySubscription` | class | Subscribes only while the `LazyPublisher` it feeds is wanted, checked once per second of wall time, so the upstream publisher sees no subscriber either | Relays and converters whose only output is a lazy topic |
 | `Namespace` | class | `str` subclass with `/`-join `__call__`, `.simulation_ns`, `.robot_ns`, `.remove_double_slash()` | Building topic / service paths |
 | `FrameNamespace` | class | `Namespace` subclass with `.sanitize()` (replaces non-alphanumeric with `_`) | TF frame name construction |
 | `ParamNamespace` | class | `Namespace` with `.`-join `__call__`, converts to/from slash namespaces | ROS param key construction |

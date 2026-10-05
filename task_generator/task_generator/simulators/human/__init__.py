@@ -14,6 +14,7 @@ import rclpy.qos
 from ament_index_python.packages import get_package_share_directory
 from arena_people_msgs.msg import Pedestrian, Pedestrians
 from arena_people_msgs.srv import MovePedestrians
+from arena_rclpy_mixins.lazy import LazyPublisher
 from arena_rclpy_mixins.registry import AsyncFactoryRegistry as Registry
 from arena_rclpy_mixins.shared import Namespace
 from arena_runtime._node import NodeInterface
@@ -57,7 +58,7 @@ class BaseHumanSimulator(NodeInterface, abc.ABC):
     PARAM_NAMESPACE: typing.ClassVar[str | None] = None
 
     _arena_peds_publisher: rclpy.publisher.Publisher
-    _marker_publisher: rclpy.publisher.Publisher
+    _marker_publisher: LazyPublisher[MarkerArray]
     _static_marker_publisher: rclpy.publisher.Publisher
     _known_obstacles: KnownObstacles
     _known_walls: KnownObstacles[Wall]
@@ -95,15 +96,17 @@ class BaseHumanSimulator(NodeInterface, abc.ABC):
         self._warned_unresolved_models: set[str] = set()
         self._ped_model_uris: dict[str, str] = {}
         self._arena_peds_publisher = self.node.create_publisher(Pedestrians, self._namespace("arena_peds"), 10)
-        self._marker_publisher = self.node.create_publisher(
-            MarkerArray,
-            self._namespace("pedestrian_markers", "extra"),
-            rclpy.qos.QoSProfile(
-                reliability=rclpy.qos.ReliabilityPolicy.RELIABLE,
-                durability=rclpy.qos.DurabilityPolicy.VOLATILE,
-                history=rclpy.qos.HistoryPolicy.KEEP_LAST,
-                depth=10,
-            ),
+        self._marker_publisher = LazyPublisher(
+            self.node.create_publisher(
+                MarkerArray,
+                self._namespace("pedestrian_markers", "extra"),
+                rclpy.qos.QoSProfile(
+                    reliability=rclpy.qos.ReliabilityPolicy.RELIABLE,
+                    durability=rclpy.qos.DurabilityPolicy.VOLATILE,
+                    history=rclpy.qos.HistoryPolicy.KEEP_LAST,
+                    depth=10,
+                ),
+            )
         )
         self._static_marker_publisher = self.node.create_publisher(
             MarkerArray,
@@ -199,7 +202,7 @@ class BaseHumanSimulator(NodeInterface, abc.ABC):
 
     def publish_markers(self, markers: MarkerArray) -> None:
         """Publish a transient debug-overlay MarkerArray on `pedestrian_markers/extra`."""
-        self._marker_publisher.publish(markers)
+        self._marker_publisher.publish(lambda: markers)
 
     def publish_static_markers(self, markers: MarkerArray) -> None:
         """Publish a latched MarkerArray on `pedestrian_markers/static` (TRANSIENT_LOCAL, late subscribers catch up)."""
