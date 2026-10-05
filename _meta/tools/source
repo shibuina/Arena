@@ -104,7 +104,7 @@ _arena_heal_pip(){
 }
 export -f _arena_heal_pip 2>/dev/null || true
 
-if [ -z ${ARENA_SOURCED+x} ] ; then
+if [ -z ${ARENA_SOURCED+x} ] || ! typeset -f arena > /dev/null 2>&1 ; then
 
     PS1_BACKUP=$PS1
 

@@ -200,8 +200,17 @@ dependencies = [
     { name = "pyyaml" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
 [package.metadata]
-requires-dist = [{ name = "pyyaml" }]
+requires-dist = [
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=7" },
+    { name = "pyyaml" },
+]
+provides-extras = ["test"]
 
 [[package]]
 name = "arena-cam"
@@ -211,8 +220,17 @@ dependencies = [
     { name = "pyyaml" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
 [package.metadata]
-requires-dist = [{ name = "pyyaml" }]
+requires-dist = [
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=7" },
+    { name = "pyyaml" },
+]
+provides-extras = ["test"]
 
 [[package]]
 name = "arena-cli"
@@ -230,13 +248,20 @@ dependencies = [
     { name = "typing-extensions" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aiomonitor", specifier = ">=0.7.1" },
     { name = "attrs" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=7" },
     { name = "pyyaml" },
     { name = "typing-extensions" },
 ]
+provides-extras = ["test"]
 
 [[package]]
 name = "arena-rosnav"
@@ -334,11 +359,18 @@ dependencies = [
     { name = "pyyaml" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "attrs" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=7" },
     { name = "pyyaml" },
 ]
+provides-extras = ["test"]
 
 [[package]]
 name = "arena-simulation-setup"
@@ -389,8 +421,17 @@ dependencies = [
     { name = "attrs" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
 [package.metadata]
-requires-dist = [{ name = "attrs" }]
+requires-dist = [
+    { name = "attrs" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=7" },
+]
+provides-extras = ["test"]
 
 [[package]]
 name = "argcomplete"
@@ -1393,6 +1434,15 @@ wheels = [
 name = "human-steering"
 version = "0.0.0"
 source = { virtual = "utils/human_steering" }
+
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pytest", marker = "extra == 'test'", specifier = ">=7" }]
+provides-extras = ["test"]
 
 [[package]]
 name = "humanfriendly"
@@ -2918,6 +2968,11 @@ dependencies = [
     { name = "watchdog" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "attrs" },
@@ -2928,6 +2983,7 @@ requires-dist = [
     { name = "numpy" },
     { name = "openai" },
     { name = "pillow" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=7" },
     { name = "pyyaml" },
     { name = "rospkg" },
     { name = "scipy" },
@@ -2937,6 +2993,7 @@ requires-dist = [
     { name = "typing-extensions" },
     { name = "watchdog" },
 ]
+provides-extras = ["test"]
 
 [[package]]
 name = "task-generator-mcp"
@@ -2946,8 +3003,17 @@ dependencies = [
     { name = "mcp" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
 [package.metadata]
-requires-dist = [{ name = "mcp", specifier = ">=2.0.0" }]
+requires-dist = [
+    { name = "mcp", specifier = ">=2.0.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=7" },
+]
+provides-extras = ["test"]
 
 [[package]]
 name = "telnetlib3"
