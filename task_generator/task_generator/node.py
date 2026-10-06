@@ -50,6 +50,7 @@ from task_generator.constants import Constants
 from task_generator.constants.runtime import Configuration, migrate_deprecated_params
 from task_generator.interactive import MarkerHub
 from task_generator.interactive.colors import RobotColors
+from task_generator.interactive.entities import EntityHandles
 from task_generator.manager.environment_manager import EnvironmentManager
 from task_generator.manager.realizer import Realizer
 from task_generator.manager.robot_manager import RobotsManager
@@ -222,6 +223,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
 
         self._reset_lock: asyncio.Lock = asyncio.Lock()
         self.markers = MarkerHub(self, self.service_namespace("markers"), self._reset_lock)
+        self._entities = EntityHandles(self)
         self.robot_colors = RobotColors()
         self._start_time = self.time
         self._task: Task | None = None
@@ -1208,6 +1210,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
     async def _run_reset_cycle(self) -> None:
         async with self._reset_lock:
             self.markers.clear()
+            self._entities.clear()
             self._start_time = self.sim_time
             self.get_logger().info("resetting")
             self._pub_state_resetting.publish(Bool(data=True))
@@ -1579,9 +1582,10 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
     ) -> task_generator_msgs.srv.SpawnStatic.Response:
         try:
             pose = self._pose_from_request(request.pose) if request.use_pose else None
-            entity_id = await self._task.tm_obstacles.extend(ObstacleKind.STATIC, request.model, pose)
+            obstacle = await self._task.tm_obstacles.extend(ObstacleKind.STATIC, request.model, pose)
+            self._entities.add(obstacle)
             self._flip_integrity()
-            response.id = entity_id
+            response.id = obstacle.sim_path
             response.success = True
         except Exception as e:
             response.success = False
@@ -1595,9 +1599,9 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
     ) -> task_generator_msgs.srv.SpawnDynamic.Response:
         try:
             pose = self._pose_from_request(request.pose) if request.use_pose else None
-            entity_id = await self._task.tm_obstacles.extend(ObstacleKind.DYNAMIC, request.model, pose)
+            obstacle = await self._task.tm_obstacles.extend(ObstacleKind.DYNAMIC, request.model, pose)
             self._flip_integrity()
-            response.id = entity_id
+            response.id = obstacle.sim_path
             response.success = True
         except Exception as e:
             response.success = False
@@ -1623,6 +1627,39 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             self._robots_manager.publish_queue()
             self._flip_integrity()
             response.name = name_out
+            response.success = True
+        except Exception as e:
+            response.success = False
+            response.error_msg = str(e)
+        return response
+
+    async def _cb_move_entity(
+        self,
+        request: task_generator_msgs.srv.MoveEntity.Request,
+        response: task_generator_msgs.srv.MoveEntity.Response,
+    ) -> task_generator_msgs.srv.MoveEntity.Response:
+        if not self.rosparam[bool].get("initialized", False):
+            response.success = False
+            response.error_msg = "task generator not initialized"
+            return response
+        if request.pose.header.frame_id not in ("map", ""):
+            response.success = False
+            response.error_msg = f"pose must be in the map frame, got {request.pose.header.frame_id!r}"
+            return response
+        try:
+            manager = self._robots_manager.managers.get(request.entity)
+            if manager is not None:
+                local = self._realizer.ezilear(Pose.from_msg(request.pose.pose))
+                async with self._reset_lock:
+                    await manager.move(local)
+            else:
+                try:
+                    await self.markers.move(request.entity, request.pose.pose)
+                except KeyError:
+                    response.success = False
+                    response.error_msg = f"unknown entity {request.entity!r}"
+                    return response
+            self._flip_integrity()
             response.success = True
         except Exception as e:
             response.success = False
@@ -1926,6 +1963,12 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             task_generator_msgs.srv.SpawnRobot,
             self.service_namespace("runtime", "spawn_robot"),
             self._cb_spawn_robot,
+        )
+
+        self.create_service(
+            task_generator_msgs.srv.MoveEntity,
+            self.service_namespace("runtime", "move"),
+            self._cb_move_entity,
         )
 
         self.create_service(

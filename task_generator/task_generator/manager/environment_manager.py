@@ -281,6 +281,11 @@ class EnvironmentManager(NodeInterface):
         await self._cache_polygons(realized)
         await self._human_simulator.spawn_obstacles(realized)
 
+    async def move_obstacles(self, setups: Collection[Obstacle]):
+        """Moves already spawned static obstacles and rebuilds the collision grid without their old footprints."""
+        await self.spawn_obstacles(setups)
+        self._sync_static_polygons()
+
     async def spawn_robot(self, robots: Sequence[Robot]) -> Sequence[Robot]:
         """
         Loads given robot into the simulator
