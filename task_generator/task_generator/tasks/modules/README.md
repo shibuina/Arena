@@ -57,7 +57,7 @@ semantics that clears all per-level forbidden zones.
 
 ### `Mod_Sounds`
 
-[`sounds/impl.py:149`](sounds/impl.py#L149)
+[`sounds/impl.py:154`](sounds/impl.py#L154)
 
 A pure renderer, not an owner of state. After each reset it resolves every
 `sound` entity from the loaded world, the active scenario's episode-scoped
@@ -67,7 +67,9 @@ through the task generator realizer, and publishes
 `sounding`/`volume_db` semantics the engine already tracks. It serves
 `runtime/spawn_sound` and `runtime/remove_sound` for
 RViz-driven runtime sources. Toggling a declared sound is a `SetSemantic`
-write, not a module service.
+write, not a module service. A runtime sound not attached to a TF frame gets a
+drag handle with a Remove menu. Dragging moves the source in place while the
+handle moves, so it keeps its entity name and keeps playing.
 
 ### `Mod_OverrideRobot`
 
