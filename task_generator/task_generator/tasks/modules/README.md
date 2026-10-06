@@ -39,7 +39,7 @@ Parameters live under `task.<mode>.<leaf>`.
 | --- | --- | --- | --- | --- |
 | `clear_forbidden_zones` | `Mod_ClearForbiddenZones` | [`clear_forbidden_zones/`](clear_forbidden_zones/) | calls `world_manager.forbid_clear()` | - |
 | `sounds` | `Mod_Sounds` | [`sounds/`](sounds/) | - | renders world-, scenario- and launch-declared `sound` semantic entities |
-| `rviz_ui` | `Mod_OverrideRobot` | [`rviz_ui/`](rviz_ui/) | - | - |
+| `rviz_ui` | `Mod_OverrideRobot` | [`rviz_ui/`](rviz_ui/) | - | puts the robot and goal handles |
 | `staged` | `Mod_Staged` | [`staged/`](staged/) | loads new stage config when stage index changes; publishes `goal_radius` and obstacle counts | - |
 
 ### `Mod_ClearForbiddenZones`
@@ -82,6 +82,19 @@ the task_generator node so multiple instances do not cross-talk. Forwards
 set-position and set-goal calls to `Task.set_robot_position` /
 `set_robot_goal`; a clicked point calls `task.force_reset()`. Provides
 interactive RViz-based control without modifying the active task mode.
+
+It also puts drag handles on the node's marker server (the Handles display).
+Every robot gets a `robot/<robot>` handle in its base TF frame, so rviz
+carries it along with the robot. Dropping it teleports the robot there and the
+handle snaps back onto it. Robots whose task mode has no goal editor of its own
+(see `TM_Robots.goal_editing_robots`) also get a `goal/<robot>` handle at the
+first go-to of their current task. On release it sends that robot alone a
+single go-to through `Task.submit_task`. The goal handle moves through
+`RobotManager.watch`, which fires after every teleport and every dispatched
+task. Handles are rebuilt after every reset and on every fleet change. Each
+robot keeps one palette color ([`interactive/colors.py`](../../interactive/colors.py))
+for its robot and goal handles, its guided waypoints and its Plan and Trail
+displays.
 
 ### `Mod_Staged`
 
