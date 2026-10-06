@@ -12,8 +12,8 @@ import math
 
 import rclpy
 from arena_people_msgs.msg import Pedestrian, Pedestrians
-from arena_rclpy_mixins.lazy import LazyPublisher
-from arena_rclpy_mixins.spin import spin_node
+from arena_rclpy_mixins.lazy import LazyPublisher, LazySubscription
+from arena_rclpy_mixins.spin import create_executor, spin_node
 from geometry_msgs.msg import TransformStamped
 from hri_msgs.msg import EngagementLevel, IdsList
 from rclpy.node import Node
@@ -101,7 +101,9 @@ class HriProducer(Node):
         self._person_conf_pub: dict[str, rclpy.publisher.Publisher] = {}
         self._person_eng_pub: dict[str, rclpy.publisher.Publisher] = {}
 
-        self.create_subscription(
+        self._peds_sub = LazySubscription(
+            self,
+            self._tf_pub,
             Pedestrians,
             f"{self._ns}/arena_peds",
             self._on_peds,
@@ -183,7 +185,6 @@ class HriProducer(Node):
         self._bodies_tracked_pub.publish(ids_list)
         self._persons_tracked_pub.publish(ids_list)
 
-        watched = self._tf_pub.wanted
         transforms: list[TransformStamped] = []
 
         for ped in msg.pedestrians:
@@ -192,28 +193,25 @@ class HriProducer(Node):
             self._ensure_body_publishers(bid)
             self._ensure_person_publishers(bid)
 
-            if watched:
-                tf = TransformStamped()
-                tf.header.stamp = stamp
-                tf.header.frame_id = parent_frame
-                tf.child_frame_id = f"body_{bid}"
-                tf.transform.translation.x = ped.pose.position.x
-                tf.transform.translation.y = ped.pose.position.y
-                tf.transform.translation.z = ped.pose.position.z + self._pool.foot_offset(bid)
-                tf.transform.rotation = ped.pose.orientation
-                transforms.append(tf)
+            tf = TransformStamped()
+            tf.header.stamp = stamp
+            tf.header.frame_id = parent_frame
+            tf.child_frame_id = f"body_{bid}"
+            tf.transform.translation.x = ped.pose.position.x
+            tf.transform.translation.y = ped.pose.position.y
+            tf.transform.translation.z = ped.pose.position.z + self._pool.foot_offset(bid)
+            tf.transform.rotation = ped.pose.orientation
+            transforms.append(tf)
 
-                if ped.name:
-                    alias = TransformStamped()
-                    alias.header.stamp = stamp
-                    alias.header.frame_id = f"body_{bid}"
-                    alias.child_frame_id = ped.name
-                    alias.transform.rotation.w = 1.0
-                    transforms.append(alias)
+            if ped.name:
+                alias = TransformStamped()
+                alias.header.stamp = stamp
+                alias.header.frame_id = f"body_{bid}"
+                alias.child_frame_id = ped.name
+                alias.transform.rotation.w = 1.0
+                transforms.append(alias)
 
-            if not watched and self._body_js_pub[bid].get_subscription_count() <= 1:
-                self._prev_stamp_sec.pop(bid, None)
-            elif ped.joint_state.name:
+            if ped.joint_state.name:
                 js = JointState()
                 js.header.stamp = stamp
                 js.header.frame_id = ""
@@ -239,8 +237,7 @@ class HriProducer(Node):
             self._person_conf_pub[bid].publish(Float32(data=1.0))
             self._person_eng_pub[bid].publish(_engagement_level(ped.animation_state))
 
-        if transforms:
-            self._tf_pub.publish(lambda: TFMessage(transforms=transforms))
+        self._tf_pub.publish(lambda: TFMessage(transforms=transforms))
 
     def destroy_node(self) -> None:
         self._pool.teardown()
@@ -249,7 +246,7 @@ class HriProducer(Node):
 
 def main(args: list[str] | None = None) -> None:
     rclpy.init(args=args)
-    spin_node(HriProducer())
+    spin_node(HriProducer(), executor=create_executor())
 
 
 if __name__ == "__main__":

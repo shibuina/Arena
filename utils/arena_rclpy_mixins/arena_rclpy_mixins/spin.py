@@ -67,13 +67,20 @@ def spin_context(
 
 
 def spin_node(node: rclpy.node.Node, **kwargs: object) -> None:
-    """Spin a single node until shutdown."""
+    """Spin a single node until shutdown, on the given executor or the global one."""
     executor = kwargs.get("executor")
-    with spin_context(**kwargs):
+    with spin_context():
         try:
-            rclpy.spin(node, executor=executor)
+            if executor is None:
+                rclpy.spin(node)
+            else:
+                executor.add_node(node)
+                executor.spin()
         finally:
             with contextlib.suppress(KeyboardInterrupt):
+                if executor is not None:
+                    executor.shutdown()
+                    executor.remove_node(node)
                 node.destroy_node()
 
 

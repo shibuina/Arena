@@ -98,7 +98,8 @@ installs `SIGINT`/`SIGTERM` handlers, calls `node.setup()`, and on shutdown
 awaits `node.teardown()` (5 s timeout), cancels pending tasks, drains launches,
 and calls `rclpy.try_shutdown()`.
 
-`spin_node(node)` is the simpler sync equivalent for non-async nodes.
+`spin_node(node)` is the simpler sync equivalent for non-async nodes, and
+`spin_node(node, executor=create_executor())` runs one on the events executor.
 `spin_context()` is a context manager that suppresses `KeyboardInterrupt` /
 `ExternalShutdownException` and shuts down the executor and rclpy on exit.
 

@@ -14,9 +14,10 @@ per-body `joint_states`, URDF latched on `bodies/<id>/urdf`, and TF
 can render animated skeletons.
 
 Body and joint frames are published on `<env_ns>/humans/tf`. Nodes that
-listen only to the env's `/tf` never receive them. They are published only
-while that topic has a subscriber, and `joint_states` only while it or the TF
-topic has one. A consumer that needs pedestrians in the world tree subscribes
+listen only to the env's `/tf` never receive them. `hri_producer` subscribes
+to `arena_peds` only while that topic has a subscriber (checked once per
+second), so an unwatched env costs it no roster work and no `joint_states`
+traffic. A consumer that needs pedestrians in the world tree subscribes
 both: `rviz_config` relays the env `/tf` and `<env_ns>/humans/tf` into
 `<env_ns>/viewer/tf` for rviz, and the evaluation recorder merges both into
 `/tf` in the bag.
