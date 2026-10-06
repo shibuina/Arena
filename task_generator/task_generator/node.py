@@ -832,7 +832,10 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
         self._timeline_t0 = None
         self._timeline_state = []
         for idx, entry in enumerate(self._timeline):
-            nxt = (entry.offset + entry.every) if (entry.every is not None and entry.every > 0.0) else float("inf")
+            if entry.every is not None and entry.every > 0.0:
+                nxt = entry.offset if entry.offset > 0.0 else entry.every
+            else:
+                nxt = float("inf")
             self._timeline_state.append(
                 {"fired": False, "next": nxt, "prev": False, "rng": random.Random(f"{seed}:{idx}")},
             )

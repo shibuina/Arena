@@ -272,7 +272,7 @@ action list of `{entity, field, value}` writes against exactly one trigger:
 | trigger | meaning |
 | --- | --- |
 | `at: <seconds>` | fire once at episode second `t` |
-| `every: <seconds>` | fire each period, optional `offset`/`until` |
+| `every: <seconds>` | fire at `offset` (default: one period in), then each period, optional `until` |
 | `when: {entity, field, is}` | fire on the false-to-true edge of a semantic value |
 
 ```yaml

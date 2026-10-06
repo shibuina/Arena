@@ -244,6 +244,22 @@ def test_timeline_every_fires_each_period() -> None:
     assert fired == [0, 0]
 
 
+def test_timeline_every_first_fires_at_offset() -> None:
+    from arena_simulation_setup.tree.World.Scenario import TimelineEntry
+
+    entry = TimelineEntry(set=[{"entity": "a", "field": "x", "value": "1"}], every=6.0, offset=2.0)
+    stub, cls, fired = _timeline_stub([entry])
+    cls._evaluate_timeline(stub, 0.0)
+    cls._evaluate_timeline(stub, 1.9)
+    assert fired == []
+    cls._evaluate_timeline(stub, 2.0)
+    assert fired == [0]
+    cls._evaluate_timeline(stub, 7.9)
+    assert fired == [0]
+    cls._evaluate_timeline(stub, 8.0)
+    assert fired == [0, 0]
+
+
 def test_timeline_every_respects_until() -> None:
     from arena_simulation_setup.tree.World.Scenario import TimelineEntry
 
