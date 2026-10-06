@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 import asyncio
+import copy
 import itertools
 import math
 import os
@@ -11,6 +12,8 @@ from collections.abc import Iterable, Mapping, Sequence
 import attrs
 import rclpy.publisher
 import rclpy.qos
+import rclpy.time
+import tf2_ros
 from ament_index_python.packages import get_package_share_directory
 from arena_people_msgs.msg import Pedestrian, Pedestrians
 from arena_people_msgs.srv import MovePedestrians
@@ -30,7 +33,7 @@ from visualization_msgs.msg import MarkerArray
 
 from task_generator.constants import Constants
 from task_generator.manager.realizer import Realizer
-from task_generator.shared import Door, DynamicObstacle, Obstacle, Orientation, Pose, Region, Robot, Wall
+from task_generator.shared import Door, DynamicObstacle, Obstacle, Orientation, Pose, Position, Region, Robot, Wall
 from task_generator.simulators.human.animation_mananager import AnimationManager
 from task_generator.simulators.human.gestures import Channel, GestureLayer, GestureRequest
 from task_generator.simulators.human.possession import PossessionTable
@@ -52,6 +55,44 @@ _STREAM_QOS = rclpy.qos.QoSProfile(
     history=rclpy.qos.HistoryPolicy.KEEP_LAST,
     depth=1,
 )
+
+
+@attrs.define
+class TrackedRobot:
+    """A robot's map-frame pose and velocity, followed through its base frame in TF."""
+
+    robot: Robot
+    tf_frame: str | None
+    pose: Pose
+    velocity: tuple[float, float] = (0.0, 0.0)
+    stamp: float | None = None
+
+    def place(self, pose: Pose) -> None:
+        """Teleport to pose, at rest until TF reports the next one."""
+        self.pose = copy.deepcopy(pose)
+        self.velocity = (0.0, 0.0)
+        self.stamp = None
+
+    def refresh(self, tf_buffer: tf2_ros.Buffer) -> None:
+        """Update pose and finite-difference velocity from the map->base TF."""
+        if self.tf_frame is None:
+            return
+        try:
+            t = tf_buffer.lookup_transform('map', self.tf_frame, rclpy.time.Time())
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+            return
+        stamp = t.header.stamp.sec + t.header.stamp.nanosec * 1e-9
+        if self.stamp is not None and stamp <= self.stamp:
+            return
+        position = Position(x=t.transform.translation.x, y=t.transform.translation.y)
+        if self.stamp is not None:
+            dt = stamp - self.stamp
+            self.velocity = (
+                (position.x - self.pose.position.x) / dt,
+                (position.y - self.pose.position.y) / dt,
+            )
+        self.pose = Pose(position, Orientation.from_msg(t.transform.rotation))
+        self.stamp = stamp
 
 
 class BaseHumanSimulator(NodeInterface, abc.ABC):
@@ -93,6 +134,7 @@ class BaseHumanSimulator(NodeInterface, abc.ABC):
         self._known_doors = KnownObstacles[Door]()
         self._wall_counter = itertools.count()
         self._known_regions: dict[str, Region] = {}
+        self._robots: dict[str, TrackedRobot] = {}
         self._warned_unresolved_models: set[str] = set()
         self._ped_model_uris: dict[str, str] = {}
         self._arena_peds_publisher = self.node.create_publisher(Pedestrians, self._namespace("arena_peds"), 10)
@@ -783,7 +825,7 @@ class BaseHumanSimulator(NodeInterface, abc.ABC):
         self._logger.debug(f"spawning {len(robots)} robots")
         return await self._sim_then_impl(
             self._simulator.robot_spawn,
-            self._spawn_robot_impl,
+            self._track_robots,
             robots,
         )
 
@@ -802,7 +844,7 @@ class BaseHumanSimulator(NodeInterface, abc.ABC):
         self._logger.debug(f"removing {len(robots)} robots")
         return await self._sim_then_impl(
             self._simulator.robot_delete,
-            self._remove_robot_impl,
+            self._untrack_robots,
             robots,
         )
 
@@ -821,9 +863,38 @@ class BaseHumanSimulator(NodeInterface, abc.ABC):
         self._logger.debug(f"moving {len(robots)} robots")
         return await self._sim_then_impl(
             self._simulator.robot_move,
-            self._move_robot_impl,
+            self._place_robots,
             robots,
         )
+
+    async def _track_robots(self, robots: Sequence[Robot]) -> Sequence[bool]:
+        for robot in robots:
+            tf_frame: str | None = None
+            try:
+                view = await robot.model.resolve()
+                tf_frame = robot.frame(view.model_params.base_frame).raw()
+            except Exception as e:
+                self._logger.warning(f"robot {robot.name!r}: base frame unresolved ({e}), using spawn pose only")
+            self._robots[robot.name] = TrackedRobot(robot=robot, tf_frame=tf_frame, pose=copy.deepcopy(robot.pose))
+        return await self._spawn_robot_impl(robots)
+
+    async def _untrack_robots(self, robots: Sequence[Robot]) -> Sequence[bool]:
+        for robot in robots:
+            self._robots.pop(robot.name, None)
+        return await self._remove_robot_impl(robots)
+
+    async def _place_robots(self, robots: Sequence[Robot]) -> Sequence[bool]:
+        for robot in robots:
+            tracked = self._robots.get(robot.name)
+            if tracked is not None:
+                tracked.place(robot.pose)
+        return await self._move_robot_impl(robots)
+
+    def tracked_robots(self) -> list[TrackedRobot]:
+        """Spawned robots in spawn order, pose and velocity refreshed from TF."""
+        for tracked in self._robots.values():
+            tracked.refresh(self.node.tf_buffer)
+        return list(self._robots.values())
 
     # impl
 

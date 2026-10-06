@@ -245,7 +245,6 @@ class ArenaHumanSimulator(BaseHumanSimulator):
         self._agent_gestures: dict[int, list[EngineGestureMsg]] = {}
         self._arena_pedestrians: Pedestrians = Pedestrians()
         self._arena_pedestrians.header.frame_id = "map"
-        self._dirty_robots: dict[str, Robot] = {}
 
         # IDs managed by the bridge (scenario-defined agents)
         self._bridge_agent_ids: set[int] = set()
@@ -650,7 +649,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             self._logger.error(f"Error in pedestrian update loop: {e}\n{traceback.format_exc()}")
 
     async def _feedback_loop(self):
-        """Publish dirty robot and possessed pedestrian poses on world_state topic."""
+        """Publish robot and possessed pedestrian states on world_state topic."""
         try:
             with self.node.sim_time_rate(self.FEEDBACK_RATE) as (done, rate):
                 while not done.is_set():
@@ -662,18 +661,20 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             self._logger.error(f"Error in feedback loop: {e}\n{traceback.format_exc()}")
 
     def _publish_world_state(self):
-        """Publish robot and possessed pedestrian poses as AgentStates on world_state topic."""
+        """Publish robot and possessed pedestrian poses and velocities as AgentStates on world_state topic."""
+        robots = self.tracked_robots()
         possessed = self.possessed_peds()
-        if not self._dirty_robots and not possessed:
+        if not robots and not possessed:
             return
         msg = AgentStatesMsg()
         msg.header.stamp = self.node.sim_time.to_msg()
         msg.header.frame_id = "map"
-        for robot in self._dirty_robots.values():
+        for tracked in robots:
             a = AgentStateMsg()
-            a.agent_id = stable_int(robot.name) & 0x7FFFFFFF
-            a.name = robot.name
-            a.pose = self._engine_pose(robot.pose)
+            a.agent_id = stable_int(tracked.robot.name) & 0x7FFFFFFF
+            a.name = tracked.robot.name
+            a.pose = self._engine_pose(tracked.pose)
+            a.velocity.x, a.velocity.y = tracked.velocity
             a.radius = 0.3
             msg.agents.append(a)
         name_to_aid = {agent_name: aid for aid, agent_name in self._agent_names.items()}
@@ -686,7 +687,6 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             a.velocity = ped.twist.linear
             a.radius = 0.35
             msg.agents.append(a)
-        self._dirty_robots.clear()
         self._world_state_pub.publish(msg)
 
     def _agent_states_to_pedestrians(self, msg: AgentFrameMsg) -> Pedestrians:
@@ -1133,18 +1133,11 @@ class ArenaHumanSimulator(BaseHumanSimulator):
 
     async def _spawn_robot_impl(self, robots: Sequence[Robot]) -> Sequence[bool]:
         """Register robot poses: published to arena_humansim via world_state topic."""
-        for robot in robots:
-            self._dirty_robots[robot.name] = robot
         self._publish_world_state()
         return (True,) * len(robots)
 
     async def _remove_robot_impl(self, robots: Sequence[Robot]) -> Sequence[bool]:
-        for robot in robots:
-            self._dirty_robots.pop(robot.name, None)
         return (True,) * len(robots)
 
     async def _move_robot_impl(self, robots: Sequence[Robot]) -> Sequence[bool]:
-        """Update tracked robot poses (sent to arena_humansim each tick)."""
-        for robot in robots:
-            self._dirty_robots[robot.name] = robot
         return (True,) * len(robots)

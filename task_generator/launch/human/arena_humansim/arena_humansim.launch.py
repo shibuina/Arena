@@ -16,7 +16,7 @@ def _include(context: launch.LaunchContext) -> list[launch.LaunchDescriptionEnti
                 'launch/arena_humansim.launch.py',
             ),
             args={
-                'markers': '2',
+                'markers': '1',
                 **forwarded,
                 'mode': 'subsystem',
                 'use_sim_time': 'true',
