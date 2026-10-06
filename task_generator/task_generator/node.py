@@ -49,6 +49,7 @@ from task_generator_msgs.msg import AdapterDisplay, AdapterEntry, AdapterVizMani
 from task_generator.constants import Constants
 from task_generator.constants.runtime import Configuration, migrate_deprecated_params
 from task_generator.interactive import MarkerHub
+from task_generator.interactive.colors import RobotColors
 from task_generator.manager.environment_manager import EnvironmentManager
 from task_generator.manager.realizer import Realizer
 from task_generator.manager.robot_manager import RobotsManager
@@ -71,6 +72,7 @@ if typing.TYPE_CHECKING:
     from arena_runtime.sim._semantics import SemanticChange, SemanticEntitySnapshot
 
     from task_generator.shared import SemanticCfg
+    from task_generator.tasks.robots.adapters import AdapterDisplayHint
 
 _LATCHED = rclpy.qos.QoSProfile(
     depth=1,
@@ -220,6 +222,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
 
         self._reset_lock: asyncio.Lock = asyncio.Lock()
         self.markers = MarkerHub(self, self.service_namespace("markers"), self._reset_lock)
+        self.robot_colors = RobotColors()
         self._start_time = self.time
         self._task: Task | None = None
 
@@ -1028,6 +1031,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
 
         env_displays.extend(self._auditory_simulator.displays())
         entries: list[AdapterEntry] = []
+        self.robot_colors.retain(self._robots_manager.managers)
         for mgr in self._robots_manager.managers.values():
             ns_value = str(mgr.namespace)
             robot_value = mgr.name
@@ -1070,13 +1074,18 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
                 def _subst(s: str, ns_value: str = ns_value, robot_value: str = robot_value) -> str:
                     return s.replace("{ns}", ns_value).replace("{robot}", robot_value)
 
+                def _style(hint: "AdapterDisplayHint", robot_value: str = robot_value) -> str:
+                    if not hint.robot_colored:
+                        return _subst(hint.style_json)
+                    return attrs.evolve(StyleSpec.from_json(_subst(hint.style_json)), color=self.robot_colors.rgb(robot_value)).to_json()
+
                 displays = [
                     AdapterDisplay(
                         name=hint.name,
                         topic=_subst(hint.topic),
                         topic_type=hint.topic_type,
                         kind=hint.kind,
-                        style_json=_subst(hint.style_json),
+                        style_json=_style(hint),
                         topic_must_exist=hint.topic_must_exist,
                     )
                     for hint in adapter.displays
