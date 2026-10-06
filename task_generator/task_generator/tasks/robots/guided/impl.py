@@ -15,6 +15,11 @@ class TM_Guided(TM_Random):
         await super().reset()
         await self._reset_waypoints()
 
+    @property
+    async def done(self) -> bool:
+        """Guided episodes end only through the rviz reset or the episode timeout."""
+        return False
+
     async def set_position(self, pose: Pose):
         del pose
         self._waypoints = []
