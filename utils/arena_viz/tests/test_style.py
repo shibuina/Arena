@@ -47,5 +47,6 @@ def test_all_kinds_enumerated():
         "polygon",
         "trajectory",
         "planning_scene",
+        "interactive_markers",
     }
     assert {k.value for k in DisplayKind} == expected

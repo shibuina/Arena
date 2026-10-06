@@ -11,7 +11,8 @@ and a small styling dataclass. No ROS deps, no renderers.
 - [`DisplayKind`](arena_viz/kinds.py): the canonical enum of display kinds
   (`MAP`, `TF`, `PEDESTRIANS`, `ROBOT_MODEL`, `ODOM`, `LASER_SCAN`,
   `POINTS_3D`, `IMAGE`, `IMU`, `FOOT_CONTACT`, `PATH`, `POSE`, `POLYGON`,
-  `TRAJECTORY`, `PLANNING_SCENE`). The vocabulary every adapter speaks.
+  `TRAJECTORY`, `PLANNING_SCENE`, `INTERACTIVE_MARKERS`). The vocabulary every
+  adapter speaks.
 - [`StyleSpec`](arena_viz/style.py): frozen styling dataclass with viz-neutral
   fields (`color`, `alpha`, `line_width`, `enabled`, `decay`, `latched`) plus an
   `extra` escape hatch keyed by visualizer name for per-viz nudges
