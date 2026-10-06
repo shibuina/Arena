@@ -48,6 +48,7 @@ from task_generator_msgs.msg import AdapterDisplay, AdapterEntry, AdapterVizMani
 
 from task_generator.constants import Constants
 from task_generator.constants.runtime import Configuration, migrate_deprecated_params
+from task_generator.interactive import MarkerHub
 from task_generator.manager.environment_manager import EnvironmentManager
 from task_generator.manager.realizer import Realizer
 from task_generator.manager.robot_manager import RobotsManager
@@ -218,6 +219,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
         self._goal_progress = GoalProgressTracker()
 
         self._reset_lock: asyncio.Lock = asyncio.Lock()
+        self.markers = MarkerHub(self, self.service_namespace("markers"), self._reset_lock)
         self._start_time = self.time
         self._task: Task | None = None
 
@@ -1002,6 +1004,18 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
 
         env_displays.append(
             AdapterDisplay(
+                name="Handles",
+                topic=str(self.markers.namespace),
+                topic_type="visualization_msgs/InteractiveMarkerUpdate",
+                kind=DisplayKind.INTERACTIVE_MARKERS,
+                style_json=StyleSpec().to_json(),
+                topic_must_exist=False,
+                group="Interaction",
+            )
+        )
+
+        env_displays.append(
+            AdapterDisplay(
                 name="World",
                 topic=f"{env_ns}/world_markers",
                 topic_type="visualization_msgs/MarkerArray",
@@ -1184,6 +1198,7 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
 
     async def _run_reset_cycle(self) -> None:
         async with self._reset_lock:
+            self.markers.clear()
             self._start_time = self.sim_time
             self.get_logger().info("resetting")
             self._pub_state_resetting.publish(Bool(data=True))
