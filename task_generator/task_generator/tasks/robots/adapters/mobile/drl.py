@@ -276,6 +276,7 @@ class DrlAdapter(MobileAdapter):
         if self._edge_node is not None:
             await self._edge_node.teardown()
             self._edge_node = None
+        await super().teardown()
 
     # ------------------------------------------------------------------
     # Phase dispatch
