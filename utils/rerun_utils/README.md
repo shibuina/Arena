@@ -77,6 +77,7 @@ renderer.
 | `FOOT_CONTACT` | warn-and-skip |
 | `TRAJECTORY` | warn-and-skip (MoveIt-only) |
 | `PLANNING_SCENE` | warn-and-skip (MoveIt-only) |
+| `INTERACTIVE_MARKERS` | nothing logged (rviz-only drag handles) |
 
 ### Entity-path convention
 

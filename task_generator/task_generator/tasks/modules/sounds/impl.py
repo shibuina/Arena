@@ -17,8 +17,12 @@ from arena_simulation_setup.tree.World.Scenario import Scenario
 from arena_simulation_setup.utils.cattrs import converter
 from builtin_interfaces.msg import Time as TimeMsg
 from geometry_msgs.msg import Point, Vector3
+from geometry_msgs.msg import Pose as PoseMsg
 from rclpy.clock import Clock, ClockType
+from visualization_msgs.msg import Marker
 
+from task_generator.interactive import Apply, Menu, planar_marker, visual
+from task_generator.shared import Orientation
 from task_generator.tasks.modules import TM_Module
 
 if typing.TYPE_CHECKING:
@@ -445,6 +449,8 @@ class Mod_Sounds(TM_Module):
             self._runtime.add(realized_name)
             wire_frame = _realize_frame(self.node._realizer.realize(), frame_id) if attach_to_frame else "map"
             self._sounds[realized_name] = self._build_resolved(sound, asset, realized_name, map_position, float(yaw), wire_frame)
+            if not attach_to_frame:
+                self._put_handle(realized_name, map_position, float(yaw))
             return realized_name
 
         realized_name = await _spawn()
@@ -457,28 +463,48 @@ class Mod_Sounds(TM_Module):
         self._logger.info(f"spawned {kind} source {realized_name!r} at ({map_position.x:.2f}, {map_position.y:.2f}, {map_position.z:.2f})")
         return response
 
+    def _put_handle(self, entity: str, position: Point, yaw: float) -> None:
+        pose = PoseMsg(position=position, orientation=Orientation.from_yaw(yaw).to_msg())
+
+        async def on_pose(moved: PoseMsg) -> None:
+            self._move_sound(entity, moved)
+
+        async def remove() -> None:
+            self._remove_runtime(entity)
+
+        self.node.markers.put(
+            planar_marker(entity, pose, description=entity, scale=0.6, visuals=[visual(Marker.CUBE, (0.25, 0.25, 0.25), (0.9, 0.8, 0.2, 0.9))]),
+            on_pose=on_pose,
+            apply=Apply.LIVE,
+            menu=[Menu("Remove", remove)],
+        )
+
+    def _move_sound(self, entity: str, pose: PoseMsg) -> None:
+        resolved = self._sounds[entity]
+        self._sounds[entity] = attrs.evolve(resolved, position=pose.position, yaw=Orientation.from_msg(pose.orientation).to_yaw())
+
+    def _remove_runtime(self, entity: str) -> bool:
+        from arena_auditory.api import INACTIVE_REPEATS
+
+        if entity not in self._runtime:
+            return False
+        resolved = self._sounds.pop(entity, None)
+        state = self._sound_state.pop(entity, None)
+        if resolved is not None and state is not None and state.last_sounding:
+            self._retiring[entity] = (resolved, state, INACTIVE_REPEATS)
+        self._attached.discard(entity)
+        self._runtime.discard(entity)
+        self.node.markers.erase(entity)
+        self.node._simulator.detach_semantics(entity)
+        return True
+
     async def _remove_sound(
         self,
         request: RemoveSound.Request,
         response: RemoveSound.Response,
     ) -> RemoveSound.Response:
-        from arena_auditory.api import INACTIVE_REPEATS
-
         entity_name = str(request.entity).strip()
-
-        async def _remove() -> bool:
-            if entity_name not in self._runtime:
-                return False
-            resolved = self._sounds.pop(entity_name, None)
-            state = self._sound_state.pop(entity_name, None)
-            if resolved is not None and state is not None and state.last_sounding:
-                self._retiring[entity_name] = (resolved, state, INACTIVE_REPEATS)
-            self._attached.discard(entity_name)
-            self._runtime.discard(entity_name)
-            self.node._simulator.detach_semantics(entity_name)
-            return True
-
-        if not await _remove():
+        if not self._remove_runtime(entity_name):
             response.error_msg = f"unknown or non-removable sound {entity_name!r}"
             return response
         response.success = True

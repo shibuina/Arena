@@ -24,6 +24,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   msg/SemanticSnapshot.msg
   srv/DespawnRobot.srv
   srv/GetTaskModes.srv
+  srv/MoveEntity.srv
   srv/Pause.srv
   srv/QueryDynamicObstacles.srv
   srv/QueryEnvironments.srv

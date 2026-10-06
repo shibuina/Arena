@@ -91,6 +91,7 @@ class WorldManagerROS(MapServerHandler, WorldManager):
     _cli_confirm_world: ClientWrapper
     _world_name: str
     _world_mtime: float
+    _world_path: Path
     _map_server_present: bool
     _map_render_memo: dict[str, tuple[bytes, str]]
     _static_markers: list[visualization_msgs.msg.Marker] | None
@@ -262,6 +263,7 @@ class WorldManagerROS(MapServerHandler, WorldManager):
 
         self._world_name = world_name
         self._world_mtime = mtime
+        self._world_path = Path(world_view.path)
         self._static_markers = None
         self.node.rosparam[str].set('world', world_name)
 
@@ -370,6 +372,11 @@ class WorldManagerROS(MapServerHandler, WorldManager):
         msg.markers.extend(markers.mechanism_markers(self._world, realizer, snapshots, stamp))
         self._world_markers_pub.publish(msg)
 
+    def refresh_world_markers(self, snapshots: "Sequence[SemanticEntitySnapshot]") -> None:
+        """Republish the world overlay from the held description, rebuilding the static layers."""
+        self._static_markers = None
+        self.publish_world_markers(snapshots)
+
     async def require_map_server(self) -> None:
         """Idempotent: lazy-launch map_server and push the current world. Safe to call concurrently."""
         async with self._map_server_lock:
@@ -418,6 +425,7 @@ class WorldManagerROS(MapServerHandler, WorldManager):
         )
         self._world_name = ''
         self._world_mtime = 0.0
+        self._world_path = Path()
         self._cli = None
         self._map_server_present = False
         self._map_server_lock = asyncio.Lock()
@@ -462,6 +470,11 @@ class WorldManagerROS(MapServerHandler, WorldManager):
     def loaded_world(self) -> str:
         """Currently loaded world. Read `node._episodes.current.world` for the intended next-episode world (the two diverge briefly during a reset cycle)."""
         return self._world_name
+
+    @property
+    def loaded_world_path(self) -> Path:
+        """Directory the loaded world resolved from, empty before the first world."""
+        return self._world_path
 
     async def sync(self, timeout: float = -1) -> bool:
         """Wait until at least one world has been applied. Used by external lifecycle callers."""

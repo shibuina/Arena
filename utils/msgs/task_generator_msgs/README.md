@@ -16,6 +16,7 @@ Auditory types (sound sources and receptions, room impulses, audio frames, detec
 | `GetTaskModes.srv` | Return currently active task-mode strings. |
 | `QueryWorlds.srv` / `QueryScenarios.srv` / `QueryEnvironments.srv` / `QueryParametrizeds.srv` / `QueryRobots.srv` / `QueryStaticObstacles.srv` / `QueryDynamicObstacles.srv` / `QueryTaskModes.srv` | Listing of available shortnames for the corresponding asset class. |
 | `SpawnStatic.srv` / `SpawnDynamic.srv` / `SpawnRobot.srv` | Inject a static obstacle / dynamic pedestrian / additional robot into the running episode via `TM_Obstacles.extend` / `TM_Robots.extend`. `SpawnRobot` accepts an optional `args` (`diagnostic_msgs/KeyValue[]`) forwarded to `Robot.parse` (e.g. `mobile`, `mobile.local_planner`, `mobile.agent`), and an `immediate` flag that provisions the robot into the live world now (idle) instead of committing on the next reset. |
+| `MoveEntity.srv` | Move a runtime-spawned static obstacle or sound by the handle its spawn returned, or any robot by name, to a map-frame pose via `runtime/move`. The same path the rviz drag handles use. |
 | `DespawnRobot.srv` | Single fleet-removal surface: stages a live robot for teardown on the next reset, un-stages a queued despawn, or cancels a queued spawn (toggles `state/robots/pending`). |
 | `SetSemantic.srv` | Write one semantic field value on an entity via `semantics/set`; one of three writer paths into semantics state (timeline, modules, external). |
 

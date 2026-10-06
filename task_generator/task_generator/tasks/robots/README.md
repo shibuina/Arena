@@ -49,7 +49,7 @@ an async `done` flag. Shipped modes:
 | --- | --- | --- |
 | `random` | [`random/`](random/) | one random reachable goal per robot per episode |
 | `explore` | [`explore/`](explore/) | extends `random`; when a robot finishes or times out, a fresh random goal is assigned |
-| `guided` | [`guided/`](guided/) | external controller drives the goal sequence |
+| `guided` | [`guided/`](guided/) | external controller drives the goal sequence. 2D Nav Goal clicks append waypoints, which show as numbered drag handles with Delete, Insert after and Clear chain menus |
 | `stationary` | [`stationary/`](stationary/) | robot stays parked at start pose without goal dispatch |
 | `scenario` | [`scenario/`](scenario/) | reads `start`/`goal` pairs from the world's scenario YAML |
 | `characterization` | [`characterization/`](characterization/) | open-loop maneuver sweep: publishes exact `cmd_vel` profiles through the robot's rated envelope (no nav goals), tags each maneuver with `characterization_phase` markers, odom stall watchdog |
