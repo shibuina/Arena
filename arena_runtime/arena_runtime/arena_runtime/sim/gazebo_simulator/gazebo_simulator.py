@@ -456,7 +456,8 @@ class GazeboSimulator(BaseSim):
             textures = await self._resolve_wall_textures(floor.material)
             floor_sdf = _generate_floor_sdf(name, floor, textures)
             async with self._semaphore:
-                await self._spawn_sdf(name, floor_sdf, Pose())
+                if not await self._spawn_sdf(name, floor_sdf, Pose()):
+                    raise RuntimeError(f"spawn_floors: {name} did not spawn")
             self._walls_entities.append(name)
         return True
 
@@ -466,7 +467,8 @@ class GazeboSimulator(BaseSim):
             textures = await self._resolve_wall_textures(ceiling.material)
             ceiling_sdf = _generate_ceiling_sdf(name, ceiling, textures)
             async with self._semaphore:
-                await self._spawn_sdf(name, ceiling_sdf, Pose())
+                if not await self._spawn_sdf(name, ceiling_sdf, Pose()):
+                    raise RuntimeError(f"spawn_ceilings: {name} did not spawn")
             self._walls_entities.append(name)
         return True
 
@@ -715,12 +717,19 @@ class GazeboSimulator(BaseSim):
             self._logger.error(f"Spawn service call raised for {name}: {e}")
             return False
 
-        if result is None:
-            raise SimUnavailable(f"spawn_sdf({name}) timed out")
-
-        if result.success:
+        if result is not None and result.success:
             self._spawned_names.add(name)
-        return result.success
+            return True
+
+        if name in await self._list_models():
+            self._spawned_names.add(name)
+            return True
+
+        self._logger.error(f"Failed to spawn {name}: {'timed out' if result is None else 'rejected'}")
+        req = DeleteEntity.Request()
+        req.entity = EntityMsg(name=name, type=EntityMsg.MODEL)
+        await self._service_delete_entity.call_timeout(req)
+        return False
 
     async def _delete_entity(self, sim_path: str, entity_type: int = EntityMsg.MODEL) -> bool:
         async with self._semaphore:
@@ -855,7 +864,8 @@ class GazeboSimulator(BaseSim):
                 wall_sdf = _generate_wall_sdf(wall_name, boxes)
                 if wall_sdf:
                     async with self._semaphore:
-                        await self._spawn_sdf(wall_name, wall_sdf, Pose())
+                        if not await self._spawn_sdf(wall_name, wall_sdf, Pose()):
+                            raise RuntimeError(f"spawn_walls: {wall_name} ({wall.name}) did not spawn")
                     self._walls_entities.append(wall_name)
             for obstacle, model in obstacles:
                 obstacle.sim_path = self._realizer.realize(f"wall_obj_{next(self._wall_counter)}")

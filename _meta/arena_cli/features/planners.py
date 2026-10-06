@@ -384,7 +384,7 @@ def test(argv: list[str]) -> None:
     Soak: one crowded lockstep stage per planner, stall/rtf/beat table, exit 3 on a stall, 4 when the runner hung.
     `--preflight`: two episodes of map_empty's `preflight` scenario, verdict wedged/weak/ok per planner, exit 3 on either.
     `--all`: every initialized planner. `--lanes N`: spread the planners over N lanes, each in its own fork.
-    Other tokens forward to the runner. Needs the evaluation feature.
+    KEY:=VALUE tokens and everything from the first other `--flag` on forward to the runner. Needs the evaluation feature.
     """
     import json
 
@@ -393,10 +393,15 @@ def test(argv: list[str]) -> None:
 
     common._reg_require("evaluation")
     lanes, argv = fork.split_lanes(argv)
-    preflight = "--preflight" in argv
-    names = [a for a in argv if ":=" not in a and not a.startswith("-")]
-    rest = [a for a in argv if (":=" in a or a.startswith("-")) and a not in ("--all", "--preflight")]
-    if "--all" in argv:
+    head, rest = argv, []
+    for i, a in enumerate(argv):
+        if a.startswith("--") and a not in ("--all", "--preflight"):
+            head, rest = argv[:i], argv[i:]
+            break
+    preflight = "--preflight" in head
+    names = [a for a in head if ":=" not in a and not a.startswith("-")]
+    rest = [a for a in head if ":=" in a] + rest
+    if "--all" in head:
         if names:
             raise common.CLIError("planners test: --all is mutually exclusive with planner names")
         names = _ready_names()

@@ -397,24 +397,28 @@ class TaskGenerator(ArenaMixinNode, SafeCallbackNode, rclpy.lifecycle.LifecycleN
             await self._arena_hold_client.ensure()
             await self._arena_unpause_window_client.ensure()
 
-            await self._set_up_managers()
+            await self.hold("setup")
+            try:
+                await self._set_up_managers()
 
-            tm_modules = self.conf.TaskMode.TM_MODULES.value
-            tm_modules.add(Constants.TaskMode.TM_Module.CLEAR_FORBIDDEN_ZONES)
-            tm_modules.add(Constants.TaskMode.TM_Module.RVIZ_UI)
+                tm_modules = self.conf.TaskMode.TM_MODULES.value
+                tm_modules.add(Constants.TaskMode.TM_Module.CLEAR_FORBIDDEN_ZONES)
+                tm_modules.add(Constants.TaskMode.TM_Module.RVIZ_UI)
 
-            self._task = await Task.create(
-                node=self,
-                environment_manager=self._environment_manager,
-                robots_manager=self._robots_manager,
-                world_manager=self._world_manager,
-                modules=list(tm_modules),
-            )
+                self._task = await Task.create(
+                    node=self,
+                    environment_manager=self._environment_manager,
+                    robots_manager=self._robots_manager,
+                    world_manager=self._world_manager,
+                    modules=list(tm_modules),
+                )
 
-            await self._world_manager.sync()
-            if flag_enabled(self, "debug", "map_server") or self._auditory_simulator.requires_map_server:
-                await self._world_manager.require_map_server()
-            await self._robots_manager.launch_pending()
+                await self._world_manager.sync()
+                if flag_enabled(self, "debug", "map_server") or self._auditory_simulator.requires_map_server:
+                    await self._world_manager.require_map_server()
+                await self._robots_manager.launch_pending()
+            finally:
+                await self.release("setup")
             self._publish_viz_manifest()
 
             self.rosparam[bool].set("initialized", True)
