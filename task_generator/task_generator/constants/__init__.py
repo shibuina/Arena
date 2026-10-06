@@ -59,6 +59,7 @@ class Constants:
             CLEAR_FORBIDDEN_ZONES = "clear_forbidden_zones"
             RVIZ_UI = "rviz_ui"
             SOUNDS = "sounds"
+            ZONE_EDIT = "zone_edit"
 
             @classmethod
             def default(cls) -> set["Constants.TaskMode.TM_Module"]:

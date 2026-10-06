@@ -40,6 +40,7 @@ Parameters live under `task.<mode>.<leaf>`.
 | `clear_forbidden_zones` | `Mod_ClearForbiddenZones` | [`clear_forbidden_zones/`](clear_forbidden_zones/) | calls `world_manager.forbid_clear()` | - |
 | `sounds` | `Mod_Sounds` | [`sounds/`](sounds/) | - | renders world-, scenario- and launch-declared `sound` semantic entities |
 | `rviz_ui` | `Mod_OverrideRobot` | [`rviz_ui/`](rviz_ui/) | - | puts the robot and goal handles |
+| `zone_edit` | `Mod_ZoneEdit` | [`zone_edit/`](zone_edit/) | - | puts one drag handle per zone corner |
 | `staged` | `Mod_Staged` | [`staged/`](staged/) | loads new stage config when stage index changes; publishes `goal_radius` and obstacle counts | - |
 
 ### `Mod_ClearForbiddenZones`
@@ -95,6 +96,22 @@ task. Handles are rebuilt after every reset and on every fleet change. Each
 robot keeps one palette color ([`interactive/colors.py`](../../interactive/colors.py))
 for its robot and goal handles, its guided waypoints and its Plan and Trail
 displays.
+
+### `Mod_ZoneEdit`
+
+[`zone_edit/impl.py`](zone_edit/impl.py)
+
+Off unless listed in `task.modules`. After every reset it puts one handle per
+zone corner of every loaded level. Dragging a corner rewrites it in the world
+description the world manager holds, so placement by zone name follows at
+once, and republishes the world overlay (the World display, off by default).
+Floors are not respawned, they catch up when the world reloads. Each corner's
+menu has "Save world to <dir>", which rewrites only the changed corner
+coordinates in each loaded level's `world.yaml` and leaves every other byte
+untouched ([`utils/zone_corners.py`](../../utils/zone_corners.py)). The next
+reset that applies the world reloads it, because the world manager compares
+`world.yaml` mtimes. A world resolved from a download cache is saved into
+that cache.
 
 ### `Mod_Staged`
 
