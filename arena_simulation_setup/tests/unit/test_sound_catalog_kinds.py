@@ -88,6 +88,26 @@ def test_world_manifest_kinds_go_away_on_a_world_switch(tmp_path: Path, library:
         library.kind("chime")
 
 
+def test_world_with_conflicting_kinds_is_refused_and_the_previous_world_stays(tmp_path: Path, library: SoundLibrary) -> None:
+    from arena_simulation_setup.tree import DynamicPaths
+
+    good = tmp_path / "good_world"
+    _write_chime(good, {"chime": {"stem": "ambient"}})
+    library.use_world(good)
+    bad = tmp_path / "bad_world"
+    _write_chime(bad, {"footstep": {"stem": "ambient"}})
+
+    with pytest.raises(ValueError, match="redefines kind 'footstep'"):
+        library.use_world(bad)
+
+    assert DynamicPaths.WORLD.path == good
+    assert "chime" in library.kinds()
+    library.use_world(tmp_path / "empty_world")
+    assert "chime" not in library.kinds()
+    library.use_world(good)
+    assert "chime" in library.kinds()
+
+
 def test_asset_of_an_undeclared_kind_is_rejected(tmp_path: Path, library: SoundLibrary) -> None:
     world = tmp_path / "world"
     _write_chime(world, None)

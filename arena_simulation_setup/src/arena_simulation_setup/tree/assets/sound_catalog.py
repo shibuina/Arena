@@ -387,19 +387,27 @@ class SoundLibrary:
         return kinds
 
     def use_world(self, world_path: Path | None) -> None:
-        """Point world-local sound resolution at world_path, drop every cached asset and reread the local kinds when it changes."""
+        """Point world-local sound resolution at world_path, drop every cached asset and reread the local kinds when it changes. Raises ValueError on bad local kinds, keeping the previous world."""
         path = Path(world_path) if world_path is not None else None
         with self._lock:
             if path == self._world:
                 return
-            DynamicPaths.WORLD.path = path if path is not None else Path("/dev/null")
-            for resolver in SoundIdentifier._resolvers:
-                resolver.invalidate()
-            self._assets.clear()
-            self._missing.clear()
-            self._base_kinds = self._local_kinds()
-            self._kinds = dict(self._base_kinds)
+            self._point_at(path)
+            try:
+                base_kinds = self._local_kinds()
+            except ValueError:
+                self._point_at(self._world)
+                raise
+            self._base_kinds = base_kinds
+            self._kinds = dict(base_kinds)
             self._world = path
+
+    def _point_at(self, path: Path | None) -> None:
+        DynamicPaths.WORLD.path = path if path is not None else Path("/dev/null")
+        for resolver in SoundIdentifier._resolvers:
+            resolver.invalidate()
+        self._assets.clear()
+        self._missing.clear()
 
     def use_world_named(self, world: str) -> None:
         """use_world on the named world's resolved path. Raises the world resolver's errors."""
