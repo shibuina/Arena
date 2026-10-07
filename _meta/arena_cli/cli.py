@@ -427,14 +427,14 @@ def lockstep(args: list[str]) -> None:
     )
 
 
-@verb("preload", passthrough=True, complete=Union(Manifest("world"), Flags({"--no-scenarios": "skip scenario assets", "--dry-run": "report what is missing without downloading"})))
+@verb("preload", passthrough=True, complete=Union(Manifest("world"), Flags({"--no-scenarios": "skip scenario assets", "--dry-run": "report what is missing without downloading", "--sounds": "also preload the default sound of every sound kind"})))
 def preload(args: list[str]) -> None:
     """Preload a world's assets ahead of launch. `arena launch` does this for you.
 
-    `arena preload <world_name> [--no-scenarios] [--dry-run]`.
+    `arena preload [<world_name>] [--no-scenarios] [--dry-run] [--sounds]`.
     """
     if not args:
-        raise CLIError("missing argument WORLD")
+        raise CLIError("missing argument WORLD (or --sounds)")
     _exec("ros2", "run", "arena_simulation_setup", "preload_world", *args)
 
 

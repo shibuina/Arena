@@ -19,7 +19,7 @@ class Constants:
         HUNAV = "hunav"
         ARENA = "arena"
 
-    class AuditorySimulator(Enum):
+    class AcousticsSimulator(Enum):
         NONE = "none"
         ARENA = "arena"
     HUMAN_PARAM_NAMESPACES = {HumanSimulator.ARENA: "humansim"}
