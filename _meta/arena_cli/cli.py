@@ -151,7 +151,11 @@ def _supervisor(*argv: str) -> None:
 
 _LAUNCH_FILES = {"task.config": Files(), "task.scenario.file": Files(), "task.params": Files(), "record.dir": Files()}
 RUNTIME_ARGS = LaunchArgs("arena_bringup", "arena_runtime.launch.py", _LAUNCH_FILES)
-ENV_ARGS = LaunchArgs("task_generator", "task_generator.launch.py", _LAUNCH_FILES)
+ENV_ARGS = Union(
+    LaunchArgs("task_generator", "task_generator.launch.py", _LAUNCH_FILES),
+    LaunchArgs("arena_auditory", "arena_auditory.launch.py", prefix="auditory.", exclude=("namespace", "env.ns", "hearing")),
+    LaunchArgs("arena_hearing", "hearing.launch.py", exclude=("env.ns", "tg_node", "frontend", "policy")),
+)
 SUPERVISOR_KNOBS = Kv(
     {
         "env.n": None,
