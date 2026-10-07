@@ -2,7 +2,7 @@
 
 Frozen interface shared by the gait generator (`GaitGenerator`), the HRI producer node,
 and every pedestrian renderer (RViz, Gazebo, Isaac). `Pedestrian.joint_state` is the
-animation single source of truth (SSOT): it carries the 30 base joint names from
+animation single source of truth (SSOT): it carries the 36 base joint names from
 `GaitGenerator.JOINT_NAMES`, and every renderer resolves its own convention from that
 one field. (Contract v2: the single torso triple became the three-triple spine stack
 of the Spine stack section. Every pre-stack recording carries 24 names and needs the
@@ -112,6 +112,24 @@ axis family as `y_hip`, applied BEFORE the sagittal ankle in the chain
 (`knee -> y_ankle -> ankle`). `l_ankle`/`r_ankle` are revolute about
 `(0,-1,0)`, same sagittal family as knees and elbows. Positive lifts the toes
 (dorsiflexion).
+
+### Driven joints
+
+A ped whose model ships a `rig.yaml` with a `drivers:` section carries those joints
+after the 36, named by the driver keys (wheelchair bundles: `l_wheel`, `r_wheel`). A
+driven joint is turned by the ped's motion, not by the gait phase. A
+`from: distance` driver is a wheel of `radius` meters, `lateral` meters left of the
+root, that rolls without slipping over the path of its own contact point: a turn
+spins the two wheels at different rates, a pivot in place counter-rotates them and
+a sideways displacement does not roll them. Values are radians, positive rolling
+forward, unbounded and never wrapped, so renderers can interpolate linearly between
+frames.
+
+The publisher integrates them from successive ped poses ([`drivers.py`](drivers.py))
+and sets them on every ped of such a model, possessed ones included. The possession
+stream itself carries only the 36. Renderers resolve them through `BONE_MAP` like
+any other wire joint and skip them on a skeleton without the bone. The ros4hri URDF
+has no such joints, so the RViz skeleton ignores them.
 
 ### Gait synthesis
 
