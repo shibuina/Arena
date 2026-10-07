@@ -289,7 +289,8 @@ class Mod_Sounds(TM_Module):
         response: SpawnSound.Response,
     ) -> SpawnSound.Response:
         try:
-            return await self._spawn_sound_impl(request, response)
+            async with self.node._reset_lock:
+                return await self._spawn_sound_impl(request, response)
         except ValueError as exc:
             self._logger.error(f"spawning runtime sound failed:\n{traceback.format_exc()}")
             response.error_msg = f"{type(exc).__name__}: {exc}"
@@ -483,7 +484,9 @@ class Mod_Sounds(TM_Module):
         response: RemoveSound.Response,
     ) -> RemoveSound.Response:
         entity_name = str(request.entity).strip()
-        if not self._remove_runtime(entity_name):
+        async with self.node._reset_lock:
+            removed = self._remove_runtime(entity_name)
+        if not removed:
             response.error_msg = f"unknown or non-removable sound {entity_name!r}"
             return response
         response.success = True
