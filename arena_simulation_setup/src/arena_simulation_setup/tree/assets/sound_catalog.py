@@ -410,8 +410,8 @@ class SoundLibrary:
         self._missing.clear()
 
     def use_world_named(self, world: str) -> None:
-        """use_world on the named world's resolved path. Raises the world resolver's errors."""
-        self.use_world(Path(WorldIdentifier(world).resolve_sync().path))
+        """use_world on the named world's resolved path, a level filter ignored. Raises the world resolver's errors."""
+        self.use_world(Path(WorldIdentifier(WorldIdentifier.parse(world)[0]).resolve_sync().path))
 
     def kinds(self) -> Mapping[str, Kind]:
         with self._lock:

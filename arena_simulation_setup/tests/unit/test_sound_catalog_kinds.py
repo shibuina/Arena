@@ -108,6 +108,15 @@ def test_world_with_conflicting_kinds_is_refused_and_the_previous_world_stays(tm
     assert "chime" in library.kinds()
 
 
+def test_named_world_with_a_level_filter_selects_the_whole_world(library: SoundLibrary) -> None:
+    from arena_simulation_setup.tree import DynamicPaths
+    from arena_simulation_setup.tree.World import WorldIdentifier
+
+    library.use_world_named("map_empty[0]")
+
+    assert DynamicPaths.WORLD.path == Path(WorldIdentifier("map_empty").resolve_sync().path)
+
+
 def test_asset_of_an_undeclared_kind_is_rejected(tmp_path: Path, library: SoundLibrary) -> None:
     world = tmp_path / "world"
     _write_chime(world, None)
