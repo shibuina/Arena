@@ -131,9 +131,12 @@ class Param[T]:
                 return value
             case int() | float() | list() | tuple():
                 try:
-                    return _coerce_value(default, raw)
+                    value = _coerce_value(default, raw)
                 except (TypeError, ValueError) as exc:
                     raise ValueError(f"{self.name} expects {type(default).__name__}, got {raw!r}") from exc
+                if value == []:
+                    raise ValueError(f"{self.name} cannot be an empty list, a ROS parameter carries no empty array")
+                return value
             case _:
                 return raw
 

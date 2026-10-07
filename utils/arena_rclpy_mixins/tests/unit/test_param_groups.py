@@ -45,6 +45,13 @@ def test_coercers_reject_out_of_range_values() -> None:
         floats([1.0, math.inf])
 
 
+def test_list_param_refuses_an_empty_list_from_the_command_line() -> None:
+    param = Param[tuple[str, ...]]("belief.kinds", ["footstep"], parse=names)
+    assert param.coerce("[speech, onset]") == ["speech", "onset"]
+    with pytest.raises(ValueError, match="belief.kinds cannot be an empty list"):
+        param.coerce("[]")
+
+
 def test_configure_from_group_defaults_leaves_role_dependent_ones_out() -> None:
     config = configure(_MotorConfig, _MotorGroup, rate_hz=10.0)
 
