@@ -185,3 +185,66 @@ def test_arena_adapter_streams_robot_pose_and_velocity_in_the_engine_frame(rclpy
         assert published() is None
 
     _with_human(scenario, backend="arena", offset=(10.0, -5.0))
+
+
+def test_pedestrian_spawned_after_the_robot_gets_its_own_engine_agent(rclpy_context):
+    pytest.importorskip("arena_humansim.core.agent_manager")
+
+    async def scenario(human, tf_buffer) -> None:
+        del tf_buffer
+        from arena_humansim.core.agent_manager import AgentManager
+        from arena_humansim.core.pool import KIND_ROBOT
+        from rclpy.executors import SingleThreadedExecutor
+        from rclpy.parameter import Parameter
+        from task_generator.constants.rng import stable_int
+        from task_generator.shared import Pose, Position
+
+        engine = AgentManager(
+            namespace=human.node.get_fully_qualified_name(),
+            parameter_overrides=[Parameter("mode", value=AgentManager.MODE_SUBSYSTEM), Parameter("publish_markers", value=0)],
+        )
+        executor = SingleThreadedExecutor()
+        executor.add_node(human.node)
+        executor.add_node(engine)
+
+        def feed_robot() -> None:
+            for _ in range(200):
+                human._publish_world_state()
+                executor.spin_once(timeout_sec=0.02)
+                if engine._latest_world_state is not None:
+                    engine.tick()
+                    return
+            raise AssertionError("engine never received world_state")
+
+        try:
+            await human.spawn_robot((_robot(1.0, 2.0),))
+            feed_robot()
+            robot_id = engine._external_entities[stable_int("rob") & 0x7FFFFFFF].agent_id
+
+            for _ in range(200):
+                if human._spawn_client.client.service_is_ready():
+                    break
+                executor.spin_once(timeout_sec=0.02)
+            ped = human._runtime_obstacle(name="ped", pose=Pose(Position(x=20.0, y=20.0)))
+            spawn = asyncio.ensure_future(human._spawn_dynamic_obstacles_impl([ped]))
+            for _ in range(500):
+                if spawn.done():
+                    break
+                executor.spin_once(timeout_sec=0.02)
+                await asyncio.sleep(0)
+            assert spawn.result() == [ped]
+
+            feed_robot()
+            (ped_id,) = human._bridge_agent_ids
+            assert human._agent_names == {ped_id: ped.sim_path}
+            assert ped_id != robot_id
+            pedestrian = engine._agents[ped_id].state
+            assert (pedestrian.pose.x, pedestrian.pose.y) == pytest.approx((20.0, 20.0), abs=0.2)
+            robot = engine._agents[robot_id].state
+            assert robot.kind == KIND_ROBOT
+            assert (robot.pose.x, robot.pose.y) == pytest.approx((1.0, 2.0))
+        finally:
+            executor.shutdown()
+            engine.destroy_node()
+
+    _with_human(scenario, backend="arena")

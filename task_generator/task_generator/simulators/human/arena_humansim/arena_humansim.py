@@ -237,7 +237,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             self.node.service_namespace(self.SERVICE_NOTIFY_STIMULUS),
         )
 
-        self._next_id: int = 1
+        self._spawns_in_flight: int = 0
 
         self._agents_lock: asyncio.Lock = asyncio.Lock()
         self._prev_agent_states: AgentFrameMsg | None = None
@@ -364,6 +364,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             Parameter("output_topic", value=self._marker_publisher.publisher.topic_name).to_parameter_msg(),
             Parameter("offset_x", value=float(cfg.x)).to_parameter_msg(),
             Parameter("offset_y", value=float(cfg.y)).to_parameter_msg(),
+            Parameter("robot_bodies", value=False).to_parameter_msg(),
         ]
         response = await self._set_viz_params_client.call_timeout(SetParameters.Request(parameters=parameters))
         if response is not None and all(result.successful for result in response.results):
@@ -618,7 +619,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
                         continue
 
                     states = self._curr_agent_states
-                    if states is not None:
+                    if states is not None and not self._spawns_in_flight:
                         current_ids = set(states.agent_id)
                         flow_ids = current_ids - self._bridge_agent_ids
                         new_ids = flow_ids - self._flow_agent_ids
@@ -953,11 +954,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
         request = SpawnAgents.Request()
         for obstacle in obstacles:
             agent_msg = AgentStateMsg()
-            agent_msg.agent_id = self._next_id
             agent_msg.name = obstacle.sim_path
-            self._bridge_agent_ids.add(self._next_id)
-            self._agent_names[self._next_id] = obstacle.sim_path
-            self._next_id += 1
 
             agent_msg.pose = self._engine_pose(obstacle.pose)
             agent_msg.velocity = Vector3(x=0.0, y=0.0, z=0.0)
@@ -995,9 +992,13 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             agent_msg.waypoints = wp_msg
             request.agents.append(agent_msg)
 
+        self._spawns_in_flight += 1
         try:
             response = await self._spawn_client.call_timeout(request)
             if response.success:
+                for agent_id, obstacle in zip(response.spawned_ids, obstacles, strict=True):
+                    self._bridge_agent_ids.add(agent_id)
+                    self._agent_names[agent_id] = obstacle.sim_path
                 self._logger.info(f"Spawned {len(response.spawned_ids)} agents")
                 return obstacles
             else:
@@ -1006,6 +1007,8 @@ class ArenaHumanSimulator(BaseHumanSimulator):
         except Exception as e:
             self._logger.error(f"SpawnAgents call failed: {e}")
             return [None] * len(obstacles)
+        finally:
+            self._spawns_in_flight -= 1
 
     async def notify_stimulus(self, agent_id: int, stimulus: str, intensity: float) -> None:
         request = NotifyStimulus.Request()
@@ -1057,7 +1060,6 @@ class ArenaHumanSimulator(BaseHumanSimulator):
 
         try:
             response = await self._remove_client.call_timeout(request)
-            self._next_id = 1
             self._bridge_agent_ids.clear()
             self._flow_agent_ids.clear()
             self._agent_names.clear()
