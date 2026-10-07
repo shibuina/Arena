@@ -182,3 +182,16 @@ def test_hearing_included_only_when_enabled() -> None:
     assert "robot.hearing.policy" not in found["includes"][_ARENA_HEARING]
     assert found["params"]["task_generator_node"]["robot.mobile.params_overlay"].endswith("arena_hearing/config/nav2_overlay.yaml")
     assert "robot.hearing.srp.hop_s" not in found["params"]["task_generator_node"]
+
+
+@pytest.mark.usefixtures("requires_auditory", "requires_hearing")
+def test_hearing_emission_level_of_an_unknown_kind_is_rejected() -> None:
+    proc = _launch({"acoustics": "arena", "robot.hearing": "srp", "robot.hearing.belief.emission_db.footstp": "55.0"}, with_auditory=True)
+    assert proc.returncode != 0
+    assert "robot.hearing.belief.emission_db.footstp names no detect kind" in proc.stderr
+
+
+@pytest.mark.usefixtures("requires_auditory", "requires_hearing")
+def test_hearing_emission_level_of_the_onset_kind_is_forwarded() -> None:
+    found = _found(_launch({"acoustics": "arena", "robot.hearing": "srp", "robot.hearing.belief.emission_db.onset": "60.0"}, with_auditory=True))
+    assert "robot.hearing.belief.emission_db.onset" in found["includes"][_ARENA_HEARING]
