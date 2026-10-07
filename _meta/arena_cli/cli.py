@@ -405,8 +405,8 @@ def lockstep(args: list[str]) -> None:
             ungated = True
         elif a.startswith("rtf:="):
             rtf = float(a.removeprefix("rtf:="))
-            if rtf <= 0:
-                raise CLIError("rtf:= must be > 0")
+            if rtf < 0:
+                raise CLIError("rtf:= must be >= 0 (0 = flat out)")
         elif a.startswith("for:="):
             if action != "run":
                 raise CLIError("for:= only applies to lockstep run")
