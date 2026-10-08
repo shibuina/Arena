@@ -288,6 +288,7 @@ def cam(args: list[str]) -> None:
       cam tour --record tour --sim --viz 0
       cam orbit radius=4 duration=8 --record --lockstep
       cam drive --record           record the flight from the start, --lockstep frame by frame
+      cam pov face=env_0_agent_1 duration=10   look through a pedestrian's eyes
 
     FILE lands under $ARENA_DATA_DIR/recordings (.mp4 if no suffix), bare --record names
     it <name>_<YYYYmmdd-HHMMSS>. Each camera records its own file, tagged -sim / -viz<env>
