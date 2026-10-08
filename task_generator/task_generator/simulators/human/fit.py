@@ -383,11 +383,7 @@ def _parser() -> argparse.ArgumentParser:
             "stance split. Writes the profile yaml and prints a fit report (rms error per joint, cycles, cadence,\n"
             "split, symmetry, worst joint)."
         ),
-        epilog=(
-            f"example:\n  {_EXAMPLE}\n\n"
-            "next: move PROFILE.yaml into task_generator/simulators/human/profiles/ (the library looks profiles up by\n"
-            "file stem) and name it from an agent type yaml as pose: {walk: {base: <stem>}}."
-        ),
+        epilog=(f"example:\n  {_EXAMPLE}\n\nnext: move PROFILE.yaml into task_generator/simulators/human/profiles/ (the library looks profiles up by\nfile stem) and name it from an agent type yaml as pose: {{walk: {{base: <stem>}}}}."),
     )
     parser.add_argument("clip", type=Path, metavar="CLIP.npy", help=f"walking clip of semantic joint angles: {_CLIP_LAYOUT}. Needs at least {MIN_CYCLES} whole cycles of steady walking")
     parser.add_argument("-o", "--output", type=Path, required=True, metavar="PROFILE.yaml", help="where the library profile yaml is written, in the form of profiles/walk_cmu_12_01.yaml")
