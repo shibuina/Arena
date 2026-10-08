@@ -711,7 +711,7 @@ class ArenaHumanSimulator(BaseHumanSimulator):
             self._logger.error(f"Error in feedback loop: {e}\n{traceback.format_exc()}")
 
     def _publish_world_state(self):
-        """Publish robot and possessed pedestrian poses and velocities as AgentStates on world_state topic."""
+        """Publish robot and possessed pedestrian poses and velocities as AgentStates on world_state topic, each robot also as `robot_<i>` by spawn order."""
         robots = self.tracked_robots()
         possessed = self.possessed_peds()
         if not robots and not possessed:
@@ -719,10 +719,13 @@ class ArenaHumanSimulator(BaseHumanSimulator):
         msg = AgentStatesMsg()
         msg.header.stamp = self.node.sim_time.to_msg()
         msg.header.frame_id = "map"
-        for tracked in robots:
+        named = [(tracked.robot.name, tracked) for tracked in robots]
+        own_names = {name for name, _ in named}
+        named += [(alias, tracked) for i, tracked in enumerate(robots) if (alias := f"robot_{i}") not in own_names]
+        for name, tracked in named:
             a = AgentStateMsg()
             a.agent_id = stable_int(tracked.robot.name) & 0x7FFFFFFF
-            a.name = tracked.robot.name
+            a.name = name
             a.pose = self._engine_pose(tracked.pose)
             a.velocity.x, a.velocity.y = tracked.velocity
             a.radius = 0.3
