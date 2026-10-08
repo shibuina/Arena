@@ -556,8 +556,9 @@ gated at `1/fps`, and without one it takes its own sim hold and steps physics by
 `1/fps` between frames. Either way a frame is captured only once the scene has
 reached that sim time. Lockstep works under Gazebo and Isaac, filmed from the sim
 camera or from an rviz camera. rviz has no scene time of its own, so it gates on
-`/clock` and draws one more update before the grab. Isaac steps slowly under a
-hold, expect a couple of seconds per frame.
+`/clock` and draws one more update before the grab. Under PhysX, Isaac renders a
+due capture at once, expect about a second per frame. Under Newton it waits out
+an idle grace after each step, expect several seconds per frame.
 
 ---
 
