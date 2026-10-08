@@ -498,5 +498,29 @@
       "sign": 1.0,
       "scale": 1.0
     }
+  ],
+  "l_wheel": [
+    {
+      "bone": "WheelL",
+      "axis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "sign": 1.0,
+      "scale": 1.0
+    }
+  ],
+  "r_wheel": [
+    {
+      "bone": "WheelR",
+      "axis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "sign": 1.0,
+      "scale": 1.0
+    }
   ]
 }
