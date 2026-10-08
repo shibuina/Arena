@@ -268,7 +268,9 @@ URDF frame before `robot_state_publisher` sees them, via `rviz_utils/hri/rig.py`
   Foot bones. Axes come from the measured-probe procedure, not eyeballing.
   `ExternalPoseProvider` replaces mapped bones with the wire pose instead of composing
   it over the walking clip.
-- **Gazebo**: clip fidelity only. gz-sim 8 actors expose no per-bone skeleton control
-  (see `arena_gz_plugins` `PedSkeletonPlugin.cc` header), the plugin follows
-  `animation_state`/pose and ignores `joint_state` by design. Full per-bone motion
-  parity for gz is a separate clip-export track.
+- **Gazebo**: `arena_gz_plugins` `PedSkeletonPlugin` renders the wire `joint_state`
+  per bone through `utils/arena_peds_pose/bone_map.json` (the JSON twin of
+  `BONE_MAP`, kept equal by `test_bone_map_parity.py`) onto the bundle's neutral
+  stance (first frame of its `neutral` clip, else of its `idle` clip), via the
+  `BoneTransforms` actor component of the gz-sim overlay. Without the overlay or the
+  bone map it follows `animation_state`/pose and scrubs the walk clip.
