@@ -7,4 +7,5 @@
 - A non-zero exit lists the patch under "update incomplete" and retries it on the next update.
 - Editing a patch does not run it again. Rename it instead.
 - Name it `YYYY-MM-DD-<slug>`. Patches run in name order. Dotfiles, directories and `*.md` are not patches.
+- A dotfile is a parked patch, written ahead of the change it cleans up. Rename it to `YYYY-MM-DD-<slug>` in the commit that makes it due.
 - Delete a patch once no checkout can still need it.
