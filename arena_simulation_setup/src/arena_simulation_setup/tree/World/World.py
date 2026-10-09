@@ -5,7 +5,7 @@ import os
 import tarfile
 import time
 import typing
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from copy import deepcopy
 from pathlib import Path
 
@@ -47,6 +47,9 @@ from arena_simulation_setup.utils.geometry import PointResolver, Position
 
 from .Map import Map
 from .Scenario import RegionAssignment, ScenarioView
+
+if typing.TYPE_CHECKING:
+    import shapely
 
 MICROPHONE_PLACEMENT_TOLERANCE_M = 0.05
 
@@ -345,6 +348,7 @@ class LevelDescription:
         default_asset_bbox: tuple[tuple[float, float], tuple[float, float]] | None = None,
         asset_color: str | None = None,
         asset_name_color: str | None = None,
+        static_objects: Iterable[tuple[str, 'shapely.Polygon']] = (),
     ) -> dict[str, typing.Any]:
         import shapely
         import shapely.affinity
@@ -357,7 +361,7 @@ class LevelDescription:
         }
 
         if asset_color is not None:
-            static_objects: list[tuple[str, shapely.Polygon]] = []
+            footprints: list[tuple[str, shapely.Polygon]] = list(static_objects)
             for entity in self.all_static_entities:
                 bbox = entity.asdict(expand_extra=True).get('bbox') or default_asset_bbox
                 if bbox is None:
@@ -374,9 +378,9 @@ class LevelDescription:
                 poly = shapely.box(x_min, y_min, x_max, y_max)
                 poly = shapely.affinity.rotate(poly, entity.pose.orientation.to_yaw(), use_radians=True)
                 poly = shapely.affinity.translate(poly, entity.pose.position.x, entity.pose.position.y)
-                static_objects.append((entity.name, poly))
+                footprints.append((entity.name, poly))
 
-            map_kwargs["static_objects"] = static_objects
+            map_kwargs["static_objects"] = footprints
             map_kwargs["asset_color"] = asset_color
             map_kwargs["asset_name_color"] = asset_name_color
 
@@ -422,14 +426,16 @@ class LevelDescription:
         default_asset_bbox: tuple[tuple[float, float], tuple[float, float]] | None = None,
         asset_color: str | None = None,
         asset_name_color: str | None = None,
+        static_objects: Iterable[tuple[str, 'shapely.Polygon']] = (),
     ) -> tuple[np.ndarray, tuple[float, float]]:
-        """Like `render` but returns a uint8 numpy array (255=free, 0=occupied) + origin."""
+        """Like `render` but returns a uint8 numpy array (255=free, 0=occupied) + origin, drawing `static_objects` (name, map-frame polygon) alongside the entity bboxes."""
         return Map.rasterize(
             resolution=resolution,
             **self._rasterize_kwargs(
                 default_asset_bbox=default_asset_bbox,
                 asset_color=asset_color,
                 asset_name_color=asset_name_color,
+                static_objects=static_objects,
             ),
         )
 
