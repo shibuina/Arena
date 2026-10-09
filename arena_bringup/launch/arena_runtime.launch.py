@@ -41,6 +41,13 @@ def generate_launch_description():
     )
 
     LaunchArgument(
+        name='world.lighting',
+        default_value='authored',
+        choices=['authored', 'auto'],
+        description='authored: the lights the world declares. auto: also a calibrated ceiling rig in every zone with a ceiling and no lights of its own.',
+    )
+
+    LaunchArgument(
         name='record.dir',
         default_value='',
         description='Directory for episode recording; empty disables.',
