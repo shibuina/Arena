@@ -89,6 +89,26 @@ _LATCHED_QOS = QoSProfile(
 )
 
 
+async def _list_models() -> list[str]:
+    proc = await asyncio.create_subprocess_exec(
+        'gz',
+        'model',
+        '--list',
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
+    out = stdout.decode()
+    if proc.returncode != 0 or 'Available models:' not in out:
+        raise SimUnavailable(f"gz model --list failed: {(stderr.decode() or out).strip()}")
+    names: list[str] = []
+    for line in out.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('- '):
+            names.append(stripped[2:].strip())
+    return names
+
+
 class GazeboHost(SimLifecycle):
     def __init__(
         self,
@@ -250,7 +270,7 @@ class GazeboHost(SimLifecycle):
         removed = 0
         for attempt in range(_CLEANUP_ATTEMPTS + 1):
             try:
-                names = await self._list_models()
+                names = await _list_models()
             except SimUnavailable:
                 if attempt == _CLEANUP_ATTEMPTS:
                     raise
@@ -275,25 +295,6 @@ class GazeboHost(SimLifecycle):
                 self._logger.warning(f"cleanup_namespace: delete {name} raised: {e!r}")
                 return False
         return bool(res) and res.success
-
-    async def _list_models(self) -> list[str]:
-        proc = await asyncio.create_subprocess_exec(
-            'gz',
-            'model',
-            '--list',
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate()
-        out = stdout.decode()
-        if proc.returncode != 0 or 'Available models:' not in out:
-            raise SimUnavailable(f"gz model --list failed: {(stderr.decode() or out).strip()}")
-        names: list[str] = []
-        for line in out.splitlines():
-            stripped = line.strip()
-            if stripped.startswith('- '):
-                names.append(stripped[2:].strip())
-        return names
 
 
 class GazeboSimulator(BaseSim):
@@ -689,7 +690,7 @@ class GazeboSimulator(BaseSim):
             # Reconcile against the live model list: track it if it exists, else
             # best-effort delete in case the create lands just after this check,
             # so a slow ack never leaves an orphan that survives every reset.
-            if name in await self._list_models():
+            if name in await _list_models():
                 self._spawned_names.add(name)
                 return True
 
@@ -721,7 +722,7 @@ class GazeboSimulator(BaseSim):
             self._spawned_names.add(name)
             return True
 
-        if name in await self._list_models():
+        if name in await _list_models():
             self._spawned_names.add(name)
             return True
 
