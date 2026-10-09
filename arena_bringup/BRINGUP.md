@@ -367,6 +367,7 @@ Default is `gazebo`. Valid values:
 | `sim.isaac.viewport.dlss` | preset | DLSS mode, `auto`, `quality`, `balanced` or `performance`. |
 | `sim.isaac.viewport.lighting` | preset | Lighting rig, `lights_off`, `camera_light`, `stage_lights`, `colored_lights`, `default` or `grey_studio`. |
 | `sim.isaac.viewport.overlays` | preset | Overlays drawn in the viewport, comma list of `axis`, `grid`, `bbox`, or `none`. |
+| `sim.isaac.viewport.ceilings` | `auto` | Room ceilings, `auto`, `on` or `off`. `auto` hides them so the GUI looks into the rooms from above, `on` shows them to every camera and sensor. At runtime `ros2 service call /isaac/ShowCeilings std_srvs/srv/SetBool "{data: true}"` switches them. |
 
 The viewport keys act on the GUI viewport only, so they have no effect under
 `headless:=true`. Robot camera sensors render through their own products and
