@@ -506,7 +506,8 @@ class GazeboSimulator(BaseSim):
 
     async def _spawn_light_entity(self, name: str, params: dict[str, typing.Any]) -> bool:
         async with self._semaphore:
-            return await self._spawn_sdf(name, _generate_light_sdf(name, params), Pose())
+            x, y, z = params['pose']
+            return await self._spawn_sdf(name, _generate_light_sdf(name, params), Pose(position=Position(x=x, y=y, z=z)))
 
     async def _spawn_lights(self, lights: Sequence[Light]) -> bool:
         dome = next((light for light in lights if light.fixture == 'dome'), None)
