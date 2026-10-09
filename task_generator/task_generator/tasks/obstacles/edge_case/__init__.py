@@ -36,7 +36,7 @@ def declare_schema(node: ROSParamServer, ns: Namespace) -> None:
         label="Prompt",
         description=(
             "A natural-language situation (`new_plan_2.md` §1.1). When set, the scenario is generated from it "
-            "at reset - the same generator as `arena_bench promptgen`, cached by prompt text - written beside the "
+            "at reset - the same generator as `evaluation generate promptgen`, cached by prompt text - written beside the "
             "world's scenarios as `<base>__rviz_<hash>` and run instead of `task.scenario.file`. Empty runs "
             "`task.scenario.file` as it is."
         ),

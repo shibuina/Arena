@@ -965,12 +965,12 @@ class TM_EdgeCase(TM_Obstacles):
         if not base_path.is_file():
             raise CaseAborted(f"prompt: base scenario {base!r} not found at {base_path}")
         try:
-            from arena_benchmark.promptgen import generate, write_result  # noqa: PLC0415
-            from arena_benchmark.promptgen.prompts import Prompt  # noqa: PLC0415
-            from arena_benchmark.promptgen.world import WorldContext  # noqa: PLC0415
-            from arena_benchmark.propose import load_overrides  # noqa: PLC0415
+            from arena_evaluation.generation.promptgen import generate, write_result  # noqa: PLC0415
+            from arena_evaluation.generation.promptgen.prompts import Prompt  # noqa: PLC0415
+            from arena_evaluation.generation.promptgen.world import WorldContext  # noqa: PLC0415
+            from arena_evaluation.generation.propose import load_overrides  # noqa: PLC0415
         except ImportError as exc:
-            raise CaseAborted(f"prompt: the generator (arena_benchmark.promptgen) is not importable: {exc}") from None
+            raise CaseAborted(f"prompt: the generator (arena_evaluation.generation.promptgen) is not importable: {exc}") from None
         import yaml  # noqa: PLC0415
 
         base_doc = yaml.safe_load(base_path.read_text()) or {}

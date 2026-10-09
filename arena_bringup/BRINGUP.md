@@ -153,7 +153,7 @@ A case is a scenario directory whose `scenario.yaml` carries an `edge_case:` blo
 runtime **effects** (`intercept`, `rally`, `shuffle`/`scatter`, `track_robot`, `hold`, each
 with a `when`); everything static - the population, derived profiles, a placed formation - is
 baked into the file by the generator
-([`arena_benchmark promptgen`](../arena_benchmark/README.md#prompt-driven-generation)).
+([`evaluation generate promptgen`](../arena_evaluation/arena_evaluation/arena_evaluation/generation/promptgen/README.md)).
 There is no knob surface any more: to run a case, launch its scenario.
 
 ```bash
@@ -181,20 +181,14 @@ that adapter, exactly like `tm_obstacles:=prompt`.
 
 #### Running several cases
 
-Cases are scenario files, so a sweep is a list of scenarios cycled against one stack
+Cases are scenario files, so a sweep is a list of scenarios: cycled against one stack
 (`data/promptgen/tools/cycle_prompt.sh`: `param set task.scenario.file` + `reset_episode`,
-verified per case), or an `arena_benchmark` spec listing them. The former `sweep:=` launch knob
-and the `edge_case_sweep` runner went with the knob surface.
-
-It writes `trials.jsonl` (what ran) beside the mode's `cases.jsonl` (what was perturbed) and
-`scores.jsonl` (what the episode did); they join on `run_seed` + `episode_id`. `--report`
-joins all three into `summary.md` / `summary.csv`, and
-`ros2 run task_generator edge_case_report <run_dir>` does the same for a run recorded
-earlier.
-
-`--driver action` waits for the task mode's own episode outcome, so it needs a robot mode
-that terminates — `edge_case` or `scenario`, not `explore`, whose `done` is always false.
-The default `reset` driver works under any robot mode.
+verified per case), or a benchmark suite with one stage per scenario, written by
+`ros2 run arena_evaluation evaluation generate suite <world...>` and run by
+`arena evaluation benchmark` (see the
+[generation README](../arena_evaluation/arena_evaluation/arena_evaluation/generation/README.md)).
+The mode writes `cases.jsonl` (what was perturbed) and `scores.jsonl` (what the episode did),
+joined on `run_seed` + `episode_id`.
 
 ---
 

@@ -20,7 +20,7 @@ import yaml
 
 from .effects import Effect, EffectError, parse_effects
 
-#: The top-level key. Matches `arena_benchmark`'s writer.
+#: The top-level key. Matches `arena_evaluation.generation`'s writer.
 BLOCK_KEY = "edge_case"
 
 #: Provenance fields, carried for humans and for the records; never acted on.

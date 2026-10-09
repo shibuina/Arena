@@ -3,7 +3,7 @@
 Runs the **effects** a scenario's `edge_case:` block declares, on top of the population the
 scenario file already carries. The design is `new_plan_2.md` at the workspace root; the offline
 generator that writes these scenarios is
-[`arena_benchmark/promptgen`](../../../../../arena_benchmark/README.md#prompt-driven-generation).
+[`arena_evaluation.generation.promptgen`](../../../../../arena_evaluation/arena_evaluation/arena_evaluation/generation/promptgen/README.md).
 
 Who is present is baked into `scenario.yaml` by the generator; until a case runs, the
 population behaves exactly as the base scenario wrote it. Everything the case *changes* -
@@ -105,7 +105,7 @@ Namespace `task.edge_case.*`, declared in [`__init__.py`](__init__.py).
 |---|---|---|
 | `robot_speed` | 1.0 | m/s the robot is assumed to drive when interceptions, holds and object events are timed. jackal covers hospital_1's 40 m leg in 33-45 s; at the old 0.5 the designed encounter came after the robot had arrived (2026-08-29). |
 | `read_scenario_block` | `true` | Off runs the base population alone. |
-| `prompt` | `""` | **The RViz input.** A natural-language situation; when set, the scenario is generated from it at reset by the same generator as `arena_bench promptgen` (model answers cached by content, so a repeated prompt is instant), written into the world's installed `scenarios/` as `<base>__rviz_<hash>` and run instead of `task.scenario.file`. The RViz task-mode panel shows this as a text field under `edge_case`. |
+| `prompt` | `""` | **The RViz input.** A natural-language situation; when set, the scenario is generated from it at reset by the same generator as `evaluation generate promptgen` (model answers cached by content, so a repeated prompt is instant), written into the world's installed `scenarios/` as `<base>__rviz_<hash>` and run instead of `task.scenario.file`. The RViz task-mode panel shows this as a text field under `edge_case`. |
 | `prompt_base` | `""` | Base the prompt is realised on; empty uses `task.scenario.file` (or its base when that is itself a prompt scenario). |
 | `record_dir` | `""` | Where `cases.jsonl` / `scores.jsonl` go. Empty → `$ARENA_DATA_DIR/edge_case`. |
 | `score`, `score_rate_hz`, `score_scope` | `true`, `10`, `auto` | Criticality panel per episode; `auto` scores the injected agents when the block injects any, everyone otherwise. |
