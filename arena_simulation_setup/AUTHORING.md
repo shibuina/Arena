@@ -446,3 +446,54 @@ Load a scenario:
 scenario = world.scenario('default').resolve_sync()
 print(scenario.load())
 ```
+
+### Reachability (NAV@r)
+
+`nav_at_r` reports how much of the floor a robot of footprint radius `r` can
+reach, the NAV@r metric of the IndoorBench paper:
+
+```bash
+ros2 run arena_simulation_setup nav_at_r my_world
+ros2 run arena_simulation_setup nav_at_r my_world --robot jackal --walls-only
+ros2 run arena_simulation_setup nav_at_r /path/to/world --radius 0.3 --start 2.0,3.5 --json
+```
+
+`--image map.png` paints the result onto the map: the dominant component in
+green, every stranded component in another color, free cells with clearance
+below `r` in light grey, entities in brown and walls in black.
+
+Each level is rasterized at 0.05 m per cell with the map rasterizer, walls
+plus the footprint of every static entity (its `bbox`, else the
+`bounding_box` of its model's `annotation.yaml`, entities whose box starts
+above 2 m are skipped). A cell is traversable when its clearance is at least
+`r` (default 0.267 m, the Jackal radius), and traversable cells group into
+8-connected components. With `m_i` the share of traversable cells in component
+`i` and `w_i` its share of spawn cells (clearance of at least 0.45 m), NAV@r is
+`sum_i w_i * m_i`: 1.0 when every traversable cell is reachable from every
+spawn, lower the more floor is stranded in other components.
+
+| Column | Meaning |
+|---|---|
+| `NAV@r` | the expectation above, `n/a` when no cell admits a spawn |
+| `components` | number of traversable components |
+| `largest` | share of traversable cells in the largest (dominant) component |
+| `start` | with `--start X,Y` (level frame, meters): share of the component holding the start, snapped to the nearest traversable cell |
+| `no bbox` | static entities without a resolvable bounding box, out of all static entities. They are not rasterized |
+| `cut-off zones` | zones of at least 2 m2 with no cell in the dominant component although they are traversable on walls only |
+
+`--walls-only` drops the static entities. A zone that stays cut off there has a
+layout fault (a missing, misplaced or too narrow door), one that is cut off
+only in the furnished run is blocked by furniture. `--robot` takes a robot name
+from the installed `arena_robots` package or a robot directory and reads
+`radius` from its `caps/mobile.yaml`. A world name resolves like at runtime,
+and `name[0,1]` restricts the levels.
+
+The same numbers are available in Python:
+
+```python
+from arena_simulation_setup.metrics.nav_at_r import nav_at_r, resolve_world
+
+view, levels = resolve_world('my_world')
+for level_id, result in nav_at_r(view, radius=0.267, levels=levels).items():
+    print(level_id, result.value, result.components, result.cut_off_zones)
+```
