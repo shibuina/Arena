@@ -5,7 +5,7 @@ import random
 import pytest
 
 from arena_cli.common import CLIError
-from arena_cli.semantics import Kind, changes, describe, draw, entity, labels, parse, plan, render, select, split_env
+from arena_cli.semantics import Kind, changes, describe, draw, entity, fitting, index, labels, parse, plan, render, select, split_env
 
 LIGHT = Kind(frozenset({"lit", "level", "dead_fraction"}), {"level": (0.0, 1.0), "dead_fraction": (0.0, 1.0)})
 DOOR = Kind(frozenset(), {})
@@ -152,13 +152,47 @@ def test_describe_states_type_range_and_writability() -> None:
 
 
 def test_changes_report_each_changed_field() -> None:
-    before = {e.realized: e for e in _world()}
-    after = dict(before)
-    after["env_0/hall/0"] = _light("hall/0", level=0.3)
+    before = index(_world())
+    after = before | index([_light("hall/0", level=0.3)])
     assert changes(before, after) == ["env_0 light hall level: 1 -> 0.3"]
-    assert changes({}, {"env_0/hall/0": _light("hall/0")}) == ["env_0 light hall level: - -> 1", "env_0 light hall lit: - -> true"]
+    assert changes({}, index([_light("hall/0")])) == ["env_0 light hall level: - -> 1", "env_0 light hall lit: - -> true"]
 
 
 def test_labels_keep_the_level_only_where_several_levels_share_a_name() -> None:
     world = [_light("hall/0"), _light("hall/1"), _light("lobby/0"), _light("1_elevator")]
-    assert labels(world) == {"env_0/hall/0": "hall/0", "env_0/hall/1": "hall/1", "env_0/lobby/0": "lobby", "env_0/1_elevator": "1_elevator"}
+    assert labels(world) == {("light", "env_0/hall/0"): "hall/0", ("light", "env_0/hall/1"): "hall/1", ("light", "env_0/lobby/0"): "lobby", ("light", "env_0/1_elevator"): "1_elevator"}
+
+
+def _ward() -> list:
+    return [_light("ward/0"), entity("env_0", "env_0/ward/0", "zone", [("regime", "day")], [("noise_db", 40.0)], [])]
+
+
+def test_a_zone_and_its_ceiling_light_of_the_same_name_both_stay_listed() -> None:
+    ward = _ward()
+    assert sorted(index(ward)) == [("light", "env_0/ward/0"), ("zone", "env_0/ward/0")]
+    assert set(labels(ward).values()) == {"ward"}
+    text = render(ward, KINDS)
+    assert "light  ward  level=1* lit=true*" in text
+    assert "zone   ward  regime=day* noise_db=40*" in text
+    assert [e.kind for e in select(ward, None, "light")] == ["light"]
+
+
+def test_a_field_goes_to_the_same_named_entity_that_has_it() -> None:
+    ward = select(_ward(), "ward", None)
+    assert [e.kind for e in ward] == ["light", "zone"]
+    ((target, field, value),) = plan(fitting(ward, [("level", "0.3")]), [("level", "0.3")], KINDS, random.Random(0))
+    assert (target.kind, field, value) == ("light", "level", "0.3")
+    ((target, field, value),) = plan(fitting(ward, [("regime", "night")]), [("regime", "night")], KINDS, random.Random(0))
+    assert (target.kind, field, value) == ("zone", "regime", "night")
+
+
+def test_a_field_no_matched_entity_has_is_rejected() -> None:
+    ward = select(_ward(), "ward", None)
+    assert fitting(ward, [("colour", "red")]) == ward
+    with pytest.raises(CLIError, match="ward.colour does not exist on this light"):
+        plan(fitting(ward, [("colour", "red")]), [("colour", "red")], KINDS, random.Random(0))
+
+
+def test_a_glob_sets_a_field_on_the_entities_that_have_it() -> None:
+    writes = plan(fitting(select(_world(), "*", None), [("level", "0.5")]), [("level", "0.5")], KINDS, random.Random(0))
+    assert sorted(target.name for target, _, _ in writes) == ["desk_lamp_light/0", "exit_strip/0", "hall/0"]

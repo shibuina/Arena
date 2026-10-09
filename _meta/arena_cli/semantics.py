@@ -38,6 +38,8 @@ ENV (optional while one env runs):
 
 Names and values:
   ENTITY is the authored name (hall), or name/level (hall/0) where a world has levels.
+  A zone and its ceiling lights share the zone's name: a field goes to the matched
+  entities that have it, --kind narrows the match.
   VALUE is true|false for a predicate, a number or token otherwise. lo..hi draws a
   uniform number in that range and random one in 0..1, --seed N makes the draw repeat.
   A single = sets a field, := stays for launch arguments.
@@ -76,15 +78,24 @@ class Entity:
     def base(self) -> str:
         return self.name.partition("/")[0]
 
+    @property
+    def key(self) -> tuple[str, str]:
+        return (self.kind, self.realized)
+
     def matches(self, pattern: str) -> bool:
         return fnmatch.fnmatchcase(self.name, pattern) or fnmatch.fnmatchcase(self.base, pattern)
 
 
-def labels(entities: Iterable[Entity]) -> dict[str, str]:
-    """Display name per realized name: the authored name, with its level only where several levels share it."""
+def index(entities: Iterable[Entity]) -> dict[tuple[str, str], Entity]:
+    """Entities by kind and realized name, the pair that identifies one."""
+    return {e.key: e for e in entities}
+
+
+def labels(entities: Iterable[Entity]) -> dict[tuple[str, str], str]:
+    """Display name per entity: the authored name, with its level only where several levels of one kind share it."""
     entities = list(entities)
-    counts = collections.Counter(e.base for e in entities)
-    return {e.realized: e.base if counts[e.base] == 1 else e.name for e in entities}
+    counts = collections.Counter((e.kind, e.base) for e in entities)
+    return {e.key: e.base if counts[e.kind, e.base] == 1 else e.name for e in entities}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -205,6 +216,12 @@ def select(entities: Iterable[Entity], pattern: str | None, kind: str | None) ->
     return chosen
 
 
+def fitting(chosen: Iterable[Entity], assignments: list[tuple[str, str]]) -> list[Entity]:
+    """The matched entities that carry every assigned field, all of them when none does."""
+    chosen = list(chosen)
+    return [e for e in chosen if all(field in e.values for field, _ in assignments)] or chosen
+
+
 def draw(value: str, rng: random.Random) -> str:
     """A literal value as given, or a uniform draw for 'random' and 'lo..hi'."""
     if value == "random":
@@ -225,7 +242,7 @@ def plan(chosen: Iterable[Entity], assignments: list[tuple[str, str]], kinds: Ma
     chosen = list(chosen)
     names = labels(chosen)
     for target in chosen:
-        name = names[target.realized]
+        name = names[target.key]
         kind = kinds.get(target.kind, Kind(None, {}))
         writable = kind.writable_of(target)
         for field, raw in assignments:
@@ -261,7 +278,7 @@ def render(entities: Iterable[Entity], kinds: Mapping[str, Kind]) -> str:
     for e in rows:
         writable = kinds.get(e.kind, Kind(None, {})).writable_of(e)
         fields = " ".join(f"{f}={v or chr(34) * 2}{'*' if f in writable else ''}" for f, v in e.values.items())
-        lines.append(f"  {e.kind.ljust(kind_w)}  {names[e.realized].ljust(name_w)}  {fields}")
+        lines.append(f"  {e.kind.ljust(kind_w)}  {names[e.key].ljust(name_w)}  {fields}")
     return "\n".join(lines)
 
 
@@ -277,7 +294,7 @@ def describe(target: Entity, kinds: Mapping[str, Kind], name: str) -> str:
     return "\n".join(lines)
 
 
-def changes(previous: Mapping[str, Entity], current: Mapping[str, Entity]) -> list[str]:
+def changes(previous: Mapping[tuple[str, str], Entity], current: Mapping[tuple[str, str], Entity]) -> list[str]:
     """One line per field that changed between two snapshots of an env."""
     lines = []
     names = labels(current.values())
@@ -352,9 +369,9 @@ def _ros_node() -> object:
     return _cm()
 
 
-def _entities(msg: object, env: str) -> dict[str, Entity]:
-    return {
-        e.entity: entity(
+def _entities(msg: object, env: str) -> dict[tuple[str, str], Entity]:
+    return index(
+        entity(
             env,
             e.entity,
             e.kind,
@@ -363,7 +380,7 @@ def _entities(msg: object, env: str) -> dict[str, Entity]:
             zip(e.predicate_names, e.predicate_values, strict=True),
         )
         for e in msg.entities
-    }
+    )
 
 
 def _subscribe(node: rclpy.node.Node, node_ns: str, callback: object) -> object:
@@ -374,7 +391,7 @@ def _subscribe(node: rclpy.node.Node, node_ns: str, callback: object) -> object:
     return node.create_subscription(SemanticSnapshot, node_ns + SNAPSHOT_SUFFIX, callback, qos)
 
 
-def _read(node: rclpy.node.Node, node_ns: str) -> dict[str, Entity]:
+def _read(node: rclpy.node.Node, node_ns: str) -> dict[tuple[str, str], Entity]:
     import rclpy
 
     latest: list = []
@@ -408,7 +425,7 @@ def _watch(node: rclpy.node.Node, nodes: list[str], kind: str | None) -> int:
     import rclpy
     from rclpy.executors import ExternalShutdownException
 
-    last: dict[str, dict[str, Entity]] = {}
+    last: dict[str, dict[tuple[str, str], Entity]] = {}
 
     def on_snapshot(node_ns: str, msg: object) -> None:
         current = {k: e for k, e in _entities(msg, _env_name(node_ns)).items() if kind is None or e.kind == kind}
@@ -452,13 +469,13 @@ def run(selector: list[str], argv: list[str]) -> int:
                 print(f"{env}  ({len(shown)} entities, * writable)")
                 print(render(shown, kinds))
                 continue
-            chosen = select(entities.values(), query.entity, query.kind)
+            chosen = fitting(select(entities.values(), query.entity, query.kind), query.assignments)
             if not query.assignments:
-                print("\n".join(describe(e, kinds, names[e.realized]) for e in chosen))
+                print("\n".join(describe(e, kinds, names[e.key]) for e in chosen))
                 continue
             for target, field, value in plan(chosen, query.assignments, kinds, rng):
                 _set(node, node_ns, target, field, value)
-                print(f"{env} {names[target.realized]}.{field} = {value}")
+                print(f"{env} {names[target.key]}.{field} = {value}")
     if not query.assignments and query.entity is None:
         print("\nset a field: arena env [ENV] semantics ENTITY FIELD=VALUE, all forms: arena env semantics --help")
     return 0
