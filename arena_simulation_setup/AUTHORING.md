@@ -107,7 +107,8 @@ With `ceiling_height` absent, the height is the tallest wall top in the zone
 (`max(segment.start.z + segment.height)` over the zone walls), falling back to
 `2.0` m when the zone has no walls.
 
-Ceilings are opaque from below and transparent from above. They are visual-only
+Ceilings are opaque from below and transparent from above. Isaac hides them by
+default, `sim.isaac.viewport.ceilings:=on` shows them. They are visual-only
 (no collision). With `ceiling_cast_shadows` false the ceiling does not occlude
 the sun, so interiors stay lit without global illumination.
 
