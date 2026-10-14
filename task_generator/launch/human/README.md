@@ -60,6 +60,9 @@ namespace, so the node is driven externally by the task generator's
 | `use_sim_time` | `true` | Passed to the node as a bool parameter |
 | `namespace` | (required) | ROS namespace for the arena_humansim node |
 
+It also passes `global_planner.inflation_radius: 0.25` (the package default is 0.38, which seals
+the meeting rooms of tightly furnished generated worlds); a forwarded arg of the same name wins.
+
 ## Adding a new human simulator
 
 1. Create `launch/human/<name>/<name>.launch.py`.

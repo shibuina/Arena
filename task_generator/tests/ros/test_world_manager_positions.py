@@ -16,6 +16,7 @@ try:
     from arena_simulation_setup.tree.World import Level, World, WorldView, Zone
     from arena_simulation_setup.utils.geometry import Pose
     from arena_simulation_setup.utils.geometry import Position as GeoPosition
+    from task_generator.constants.rng import EpisodeRng
     from task_generator.manager.world_manager.utils import MultiLevelMap, WorldLayers, WorldMap, WorldOccupancy
     from task_generator.manager.world_manager.world_manager import (
         WorldManager,
