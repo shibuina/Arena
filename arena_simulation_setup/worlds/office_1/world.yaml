@@ -113,7 +113,6 @@ levels:
   - {name: hallway_plant_2, pose: [0.5, 10.5], model: Office/SM_Plant02}
   - {name: hallway_plant_3, pose: [18.5, 13.3], model: Office/SM_Plant01}
   - {name: hallway_plant_4, pose: [20.5, 13.3], model: Office/SM_Plant01}
-  - {name: hallway_plant_5, pose: [24.0, 10.7], model: Office/SM_Plant01}
   - {name: cafeteria_table_1, pose: [3.0, 3.0], model: Office/SM_TableD}
   - {name: cafeteria_chair_1_1a, pose: [2.2, 1.9, 0.6], model: Office/SM_Chair}
   - {name: cafeteria_chair_1_1b, pose: [2.2, 3.5], model: Office/SM_Chair}
@@ -138,7 +137,6 @@ levels:
   - {name: cafeteria_plant_1, pose: [0.5, 9.4], model: Office/SM_Plant02}
   - {name: cafeteria_plant_2, pose: [11.5, 0.5], model: Office/SM_Plant03}
   - {name: cafeteria_trash_1, pose: [0.2, 0.2], model: Office/SM_TrashCan}
-  - {name: sub_hallway_plant, pose: [14.4, 0.8], model: Office/SM_Plant01}
   - {name: meet1_table1, pose: [20.8, 7.125, 1.5708], model: Office/SM_TableRound_module}
   - {name: meet1_table2, pose: [19.55, 7.125, 1.5708], model: Office/SM_TableRound_module}
   - {name: meet1_table3, pose: [18.3, 7.125, 1.5708], model: Office/SM_TableRound_module}
