@@ -23,9 +23,9 @@ class WorldGeneratorCorridor(WithPedestrians):
         corridor_width: float = pydantic.Field(2.0, gt=0)
         width_spread: float = pydantic.Field(0.0, ge=0, lt=1)
         branches: int = pydantic.Field(10, ge=1)
-        bends: int = pydantic.Field(0, ge=0, le=8)  # kinks per branch, 0 keeps the ROS 1 right-angle elbow
-        wiggle: float = pydantic.Field(0.0, ge=0, le=0.5)  # sideways kink offset, as a share of the branch length
-        diagonal: bool = True  # False keeps winding corridors to right angles
+        bends: int = pydantic.Field(0, ge=0, le=8)
+        wiggle: float = pydantic.Field(0.0, ge=0, le=0.5)
+        diagonal: bool = True
 
     config: Configuration
 
@@ -74,7 +74,6 @@ class WorldGeneratorCorridor(WithPedestrians):
         run = math.dist(path[-2], path[-1])
         end = (qx + (qx - px) / run * half, qy + (qy - py) / run * half)
         segments = [Segment(a=a, b=b, width=width) for a, b in itertools.pairwise(path)]
-        # the last leg runs half a width past `near`, so the junction has no notch
         pieces = [shapely.LineString([path[-1], end]).buffer(half, cap_style='flat')]
         for u, v, w in zip(path, path[1:-1], path[2:], strict=False):
             back = [v[i] + (u[i] - v[i]) * min(1.0, width / math.dist(u, v)) for i in (0, 1)]
@@ -113,7 +112,6 @@ class WorldGeneratorCorridor(WithPedestrians):
                 elbow = (new[0], near[1]) if self.rng.random() < 0.5 else (near[0], new[1])
                 width = c.corridor_width * self.rng.uniform(1 - c.width_spread, 1 + c.width_spread)
                 layout.segments.extend(Segment(a=a, b=b, width=width) for a, b in ((new, elbow), (elbow, near)) if a != b)
-                # flat caps notch at the elbow and leave the ends short, as ROS 1 carved them square
                 half = width / 2
                 layout.areas.extend(Area(polygon=shapely.box(x - half, y - half, x + half, y + half)) for x, y in dict.fromkeys((new, elbow, near)))
             nodes.append(new)

@@ -13,15 +13,12 @@ from .utils import to_corners, to_walls, world_of
 class WorldGeneratorOpen(WithPedestrians):
     """A walled box with square obstacles at random positions, merged where they overlap."""
 
-    # Off the layout IR, like `barn`: one zone spans the box and each obstacle is walled. On the IR every obstacle would be
-    # a hole, and the zone slicing that holes need turns a few hundred obstacles into a thousand zones.
-
     class Configuration(PedestrianConfiguration):
-        width: float = pydantic.Field(20.0, gt=0)  # m
+        width: float = pydantic.Field(20.0, gt=0)
         height: float = pydantic.Field(20.0, gt=0)
-        obstacles: int = pydantic.Field(15, ge=0)  # ROS 1 `obstacle_num`
-        obstacle_size: float = pydantic.Field(1.0, gt=0)  # side of a square (m), ROS 1 1 + 2 `obstacle_extra_radius` cells
-        size_spread: float = pydantic.Field(0.0, ge=0, lt=1)  # each side is obstacle_size x U(1 - spread, 1 + spread)
+        obstacles: int = pydantic.Field(15, ge=0)
+        obstacle_size: float = pydantic.Field(1.0, gt=0)
+        size_spread: float = pydantic.Field(0.0, ge=0, lt=1)
 
     config: Configuration
 
