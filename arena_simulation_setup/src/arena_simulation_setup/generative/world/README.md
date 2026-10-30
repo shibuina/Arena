@@ -13,6 +13,8 @@ The ROS node is [`world_generator_ros.py`](world_generator_ros.py), its interfac
 | `barn` | box size, passage width, straightness, or `index` | a BARN-style winding passage, or with `index` (0..299) the canonical BARN challenge world of that number, read from `source` (a directory of `world_<index>.world` files) or fetched from GitHub into `ARENA_ASSETS_DIR/.import/barn/worlds`. Each cylinder is an octagon of walls whose outer faces lie on the 0.075 m radius, in the challenge frame shifted by +4.5 m in x. Either way the episode is pinned to `tm_robots: scenario` |
 | `sketch` | a grid of box-drawing glyphs | corridors and rooms exactly as drawn |
 | `letter` | text | one 18-segment character cell per glyph |
+| `corridor` | extent, corridor width and its spread, branches, bends, wiggle and diagonal | ROS 1 arena-rosnav's `indoor` map: a tree of corridors grown from the center with right-angle elbows, or with `bends` winding through kinks at 45 and 90 degrees (`diagonal` off: right angles only) |
+| `open` | extent, obstacle count, size and its spread | ROS 1 arena-rosnav's `outdoor` map: a walled box with square obstacles at random positions, merged where they overlap |
 
 Registration in [`__init__.py`](__init__.py) is lazy, so importing the package does not import every generator. An implementation subclasses `WorldGeneratorImpl` with:
 
@@ -32,7 +34,7 @@ Registration in [`__init__.py`](__init__.py) is lazy, so importing the package d
 | `Area` | a filled polygon, unioned with the buffered segments |
 | `Region` | a named area that names and materialises a zone, geometry comes from the union |
 
-Doors have no IR form. Every generator on the IR draws corridors, where an opening is just more free space, so nothing has needed one. [`hallway.py`](hallway.py) cuts its own and is not on the IR.
+Doors have no IR form. Every generator on the IR draws corridors, where an opening is just more free space, so nothing has needed one. [`hallway.py`](hallway.py) cuts its own and is not on the IR. `open` is not on it either: each obstacle is a ring of walls in one zone, since an IR hole per obstacle would slice the box into a thousand zones.
 
 `compile_layout` unions everything, takes the rings of the result as walls, clips regions to non-overlapping zones, covers the rest as `area_N`, and returns `Diagnostics` beside the level.
 
