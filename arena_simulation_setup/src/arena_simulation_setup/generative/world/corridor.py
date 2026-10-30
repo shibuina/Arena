@@ -1,4 +1,4 @@
-"""Corridor trees: arena-rosnav's ROS 1 `rosnav` indoor maps on the layout IR."""
+"""Corridor trees on the layout IR."""
 
 import itertools
 import math

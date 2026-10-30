@@ -1,4 +1,4 @@
-"""Open fields: arena-rosnav's ROS 1 `rosnav` outdoor maps."""
+"""Open fields of square obstacles."""
 
 import pydantic
 import shapely
