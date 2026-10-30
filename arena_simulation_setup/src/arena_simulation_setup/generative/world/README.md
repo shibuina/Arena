@@ -13,10 +13,8 @@ The ROS node is [`world_generator_ros.py`](world_generator_ros.py), its interfac
 | `barn` | box size, passage width, straightness, or `index` | a BARN-style winding passage, or with `index` (0..299) the canonical BARN challenge world of that number, read from `source` (a directory of `world_<index>.world` files) or fetched from GitHub into `ARENA_ASSETS_DIR/.import/barn/worlds`. Each cylinder is an octagon of walls whose outer faces lie on the 0.075 m radius, in the challenge frame shifted by +4.5 m in x. Either way the episode is pinned to `tm_robots: scenario` |
 | `sketch` | a grid of box-drawing glyphs | corridors and rooms exactly as drawn |
 | `letter` | text | one 18-segment character cell per glyph |
-| `corridor` | extent, corridor width and its spread, branches, bends, wiggle and diagonal | a tree of corridors grown from the center: each branch joins a random point to the nearest node (L1 distance) through one right-angle elbow, or with `bends` through that many kinks pushed sideways by up to `wiggle` of the branch length, each pair joined by a diagonal and a straight leg, so corridors run at multiples of 45 degrees, or with `diagonal` off by two straight legs (right angles only) |
-| `open` | extent, obstacle count, size and its spread | a walled box with square obstacles at random positions, merged where they overlap |
-
-`corridor` and `open` port the `indoor` and `outdoor` map types of arena-rosnav's ROS 1 `rosnav` map generator (`utils/misc/map_generator/map_generator/rosnav/`), which drew them on an occupancy grid. Here they are drawn in meters, and a spread draws each branch width or obstacle side as its base x U(1 - spread, 1 + spread). `corridor` is on the layout IR: a branch is two segments with squares at its ends and elbow, or with `bends` a chain of 45- and 90-degree legs, kinks at least four corridor widths apart (closer ones zig-zag), with a mitered piece at every turn (beveled past 90 degrees, cut to the extent, polygon parts only) and the last leg run half a width past the node it joins (flat caps would notch there); dead ends stay flat, and a winding branch shorter than three corridor widths, which reads as a bulge, is redrawn (up to 20 times, then dropped). `open` is off it, like `barn`: one zone spans the box and every obstacle is a ring of walls, since the IR would make each obstacle a hole and slicing a few hundred holes into zones yields a thousand zones.
+| `corridor` | extent, corridor width and its spread, branches, bends, wiggle and diagonal | ROS 1 arena-rosnav's `indoor` map: a tree of corridors grown from the center with right-angle elbows, or with `bends` winding through kinks at 45 and 90 degrees (`diagonal` off: right angles only) |
+| `open` | extent, obstacle count, size and its spread | ROS 1 arena-rosnav's `outdoor` map: a walled box with square obstacles at random positions, merged where they overlap |
 
 Registration in [`__init__.py`](__init__.py) is lazy, so importing the package does not import every generator. An implementation subclasses `WorldGeneratorImpl` with:
 
@@ -36,7 +34,7 @@ Registration in [`__init__.py`](__init__.py) is lazy, so importing the package d
 | `Area` | a filled polygon, unioned with the buffered segments |
 | `Region` | a named area that names and materialises a zone, geometry comes from the union |
 
-Doors have no IR form. Every generator on the IR draws corridors, where an opening is just more free space, so nothing has needed one. [`hallway.py`](hallway.py) cuts its own and is not on the IR.
+Doors have no IR form. Every generator on the IR draws corridors, where an opening is just more free space, so nothing has needed one. [`hallway.py`](hallway.py) cuts its own and is not on the IR. `open` is not on it either: each obstacle is a ring of walls in one zone, since an IR hole per obstacle would slice the box into a thousand zones.
 
 `compile_layout` unions everything, takes the rings of the result as walls, clips regions to non-overlapping zones, covers the rest as `area_N`, and returns `Diagnostics` beside the level.
 
