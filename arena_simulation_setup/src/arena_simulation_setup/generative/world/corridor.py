@@ -18,14 +18,14 @@ class WorldGeneratorCorridor(WithPedestrians):
     """A tree of corridors grown from the center, each branch joined to the nearest node (L1)."""
 
     class Configuration(PedestrianConfiguration):
-        width: float = pydantic.Field(30.0, gt=0)  # extent the nodes are drawn in (m)
+        width: float = pydantic.Field(30.0, gt=0)
         height: float = pydantic.Field(30.0, gt=0)
-        corridor_width: float = pydantic.Field(2.0, gt=0)  # m
-        width_spread: float = pydantic.Field(0.0, ge=0, lt=1)  # each branch is corridor_width x U(1 - spread, 1 + spread) wide
-        branches: int = pydantic.Field(10, ge=1)  # nodes added to the root (ROS 1 `iterations`)
-        bends: int = pydantic.Field(0, ge=0, le=8)  # kinks per branch, 0 keeps the right-angle elbow, more turn at 45 and 90 degrees
-        wiggle: float = pydantic.Field(0.0, ge=0, le=0.5)  # sideways offset of each kink, as a share of the branch length
-        diagonal: bool = True  # with bends, kinks are joined by a diagonal and a straight leg, False keeps to right angles
+        corridor_width: float = pydantic.Field(2.0, gt=0)
+        width_spread: float = pydantic.Field(0.0, ge=0, lt=1)
+        branches: int = pydantic.Field(10, ge=1)
+        bends: int = pydantic.Field(0, ge=0, le=8)  # kinks per branch, 0 keeps the ROS 1 right-angle elbow
+        wiggle: float = pydantic.Field(0.0, ge=0, le=0.5)  # sideways kink offset, as a share of the branch length
+        diagonal: bool = True  # False keeps winding corridors to right angles
 
     config: Configuration
 
@@ -41,7 +41,7 @@ class WorldGeneratorCorridor(WithPedestrians):
         """Up to `bends` points along a-b, each pushed across it by up to `wiggle` of its length."""
         c = self.config
         length = ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5
-        n = min(c.bends, int(length // (4 * c.corridor_width)) - 1)  # kinks closer than four widths zig-zag
+        n = min(c.bends, int(length // (4 * c.corridor_width)) - 1)
         if n <= 0:
             return []
         nx, ny = (a[1] - b[1]) / length, (b[0] - a[0]) / length
@@ -74,17 +74,14 @@ class WorldGeneratorCorridor(WithPedestrians):
         run = math.dist(path[-2], path[-1])
         end = (qx + (qx - px) / run * half, qy + (qy - py) / run * half)
         segments = [Segment(a=a, b=b, width=width) for a, b in itertools.pairwise(path)]
-        # the last leg runs half a width past `near`, so the junction has no notch, cut to the extent where `near` lies at
-        # the margin, while the dead end at `new` stays flat
+        # the last leg runs half a width past `near`, so the junction has no notch
         pieces = [shapely.LineString([path[-1], end]).buffer(half, cap_style='flat')]
         for u, v, w in zip(path, path[1:-1], path[2:], strict=False):
             back = [v[i] + (u[i] - v[i]) * min(1.0, width / math.dist(u, v)) for i in (0, 1)]
             ahead = [v[i] + (w[i] - v[i]) * min(1.0, width / math.dist(v, w)) for i in (0, 1)]
-            # a miter past 2 half-widths (turns sharper than 90 degrees) is beveled, and pieces at the margin are cut to the extent
             pieces.append(shapely.LineString([back, v, ahead]).buffer(half, cap_style='flat', join_style='mitre', mitre_limit=2.0))
         turns = []
         for piece in pieces:
-            # a cut can leave lines or points beside the polygon, and the IR takes polygons only
             parts = [g for g in shapely.get_parts(piece.intersection(extent)) if isinstance(g, shapely.Polygon) and g.area > 0]
             if parts:
                 turns.append(Area(polygon=parts[0] if len(parts) == 1 else shapely.MultiPolygon(parts)))
@@ -101,7 +98,7 @@ class WorldGeneratorCorridor(WithPedestrians):
             new = (self._snap(self.rng.uniform(margin, c.width - margin)), self._snap(self.rng.uniform(margin, c.height - margin)))
             near = min(nodes, key=lambda node: abs(node[0] - new[0]) + abs(node[1] - new[1]))
             if c.bends:
-                for _ in range(20):  # a winding stub shorter than three widths reads as a bulge, not a corridor
+                for _ in range(20):
                     if math.dist(new, near) >= 3 * c.corridor_width:
                         break
                     new = (self._snap(self.rng.uniform(margin, c.width - margin)), self._snap(self.rng.uniform(margin, c.height - margin)))
