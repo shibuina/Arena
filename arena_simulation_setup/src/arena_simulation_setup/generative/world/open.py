@@ -3,11 +3,10 @@
 import pydantic
 import shapely
 
-from arena_simulation_setup.tree.World import Level, World, Zone
+from arena_simulation_setup.tree.World import World
 
 from . import PedestrianConfiguration, WithPedestrians
-from .layout import Diagnostics
-from .utils import to_corners, to_walls, world_of
+from .layout import Area, Layout, Region, compile_layout
 
 
 class WorldGeneratorOpen(WithPedestrians):
@@ -27,6 +26,9 @@ class WorldGeneratorOpen(WithPedestrians):
         self.warnings = []
         self.diagnostics = None
 
+    def _snap(self, value: float) -> float:
+        return round(value / self.config.resolution) * self.config.resolution
+
     def compute(self) -> World:
         c = self.config
         box = shapely.box(0, 0, c.width, c.height)
@@ -34,10 +36,8 @@ class WorldGeneratorOpen(WithPedestrians):
         for _ in range(c.obstacles):
             side = c.obstacle_size * self.rng.uniform(1 - c.size_spread, 1 + c.size_spread)
             x, y = self.rng.uniform(0, c.width), self.rng.uniform(0, c.height)
-            blocks.append(shapely.box(x - side / 2, y - side / 2, x + side / 2, y + side / 2))
+            blocks.append(shapely.box(self._snap(x - side / 2), self._snap(y - side / 2), self._snap(x + side / 2), self._snap(y + side / 2)))
         free = box.difference(shapely.union_all(blocks)) if blocks else box
-        parts = [part for part in shapely.get_parts(free) if isinstance(part, shapely.Polygon) and not part.is_empty]
-        fill = 1 - sum(part.area for part in parts) / box.area
-        level = Level(zones=[Zone(name='open', polygon=to_corners(box))], walls=to_walls(shapely.MultiPolygon(parts)))
-        self.diagnostics = Diagnostics(components=len(parts), islands=sum(len(part.interiors) for part in parts), zones=1, extent=(c.width, c.height))
-        return world_of(level, {'open': f'open field, {c.obstacles} obstacles, {fill:.0%} filled'})
+        description = f'open field, {c.obstacles} obstacles, {1 - free.area / box.area:.0%} filled'
+        world, self.diagnostics = compile_layout(Layout(areas=[Area(polygon=free)], regions=[Region(name='open', polygon=box, description=description)]))
+        return world

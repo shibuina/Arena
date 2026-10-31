@@ -5,6 +5,7 @@ import random
 
 import pytest
 import shapely
+from arena_simulation_setup.generative.world.layout import diagnostics_of
 from arena_simulation_setup.generative.world.open import WorldGeneratorOpen
 from arena_simulation_setup.tree.World import Level
 
@@ -33,9 +34,37 @@ def test_an_obstacle_inside_is_walled_and_an_island():
     assert fill(level, 400.0) == pytest.approx(16.0 / 400.0)
 
 
-def test_one_zone_however_many_obstacles():
-    generator, level = build(obstacles=300, obstacle_size=0.5)
-    assert len(level.zones) == 1 and generator.diagnostics.islands > 100
+def test_an_obstacle_is_solid_on_the_map():
+    _, level = next(built for built in (build(seed, width=20.0, height=20.0, obstacles=1, obstacle_size=4.0) for seed in range(20)) if built[0].diagnostics.islands)
+    center = min((shapely.Polygon([(p.x, p.y) for p in wall.path]) for wall in level.walls), key=lambda ring: ring.area).centroid
+    resolution = 0.1
+    grid, (origin_x, origin_y) = level.render_grid(resolution)
+    assert grid[grid.shape[0] - 1 - round((center.y - origin_y) / resolution), round((center.x - origin_x) / resolution)] == 0
+
+
+def test_a_cleared_spot_is_free_on_the_map():
+    _, level = build(width=12.0, height=8.0, obstacles=0)
+    resolution = 0.1
+    grid, (origin_x, origin_y) = level.render_grid(resolution)
+    assert grid[grid.shape[0] - 1 - round((4.0 - origin_y) / resolution), round((6.0 - origin_x) / resolution)] == 255
+
+
+def test_no_zone_covers_an_obstacle():
+    _, level = build(obstacles=40)
+    rings = sorted((shapely.Polygon([(p.x, p.y) for p in wall.path]) for wall in level.walls), key=lambda ring: ring.area)
+    free = shapely.union_all([zone.shape() for zone in level.zones])
+    assert all(not free.contains(ring.representative_point()) for ring in rings[:-1])
+
+
+def test_zones_show_the_islands():
+    _, level = build(obstacles=300, obstacle_size=0.5)
+    assert diagnostics_of(level).islands > 100
+
+
+def test_a_dense_field_renders():
+    for seed in range(10):
+        _, level = build(seed, obstacles=300, obstacle_size=0.5, size_spread=0.5)
+        level.render(0.05)
 
 
 def test_fill_grows_with_the_count():

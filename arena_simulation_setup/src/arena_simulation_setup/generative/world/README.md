@@ -14,7 +14,7 @@ The ROS node is [`world_generator_ros.py`](world_generator_ros.py), its interfac
 | `sketch` | a grid of box-drawing glyphs | corridors and rooms exactly as drawn |
 | `letter` | text | one 18-segment character cell per glyph |
 | `corridor` | extent, corridor width and its spread, branches, bends, wiggle and diagonal | a tree of corridors grown from the center with right-angle elbows, or with `bends` winding through kinks at 45 and 90 degrees (`diagonal` off: right angles only), branches under three corridor widths staying elbows |
-| `open` | extent, obstacle count, size and its spread | a walled box with square obstacles at random positions, merged where they overlap |
+| `open` | extent, obstacle count, size and its spread | a walled box with square obstacles at random positions, merged where they overlap. Zones are vertical bands around the obstacles |
 
 Registration in [`__init__.py`](__init__.py) is lazy, so importing the package does not import every generator. An implementation subclasses `WorldGeneratorImpl` with:
 
@@ -34,7 +34,7 @@ Registration in [`__init__.py`](__init__.py) is lazy, so importing the package d
 | `Area` | a filled polygon, unioned with the buffered segments |
 | `Region` | a named area that names and materialises a zone, geometry comes from the union |
 
-Doors have no IR form. Every generator on the IR draws corridors, where an opening is just more free space, so nothing has needed one. [`hallway.py`](hallway.py), which cuts its own, and [`open.py`](open.py) are not on the IR.
+Doors have no IR form. Every generator on the IR draws corridors, where an opening is just more free space, so nothing has needed one. [`hallway.py`](hallway.py) cuts its own and is not on the IR.
 
 `compile_layout` unions everything, takes the rings of the result as walls, clips regions to non-overlapping zones, covers the rest as `area_N`, and returns `Diagnostics` beside the level.
 
