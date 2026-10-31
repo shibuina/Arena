@@ -86,6 +86,12 @@ class WorldGeneratorCorridor(WithPedestrians):
                 turns.append(Area(polygon=parts[0] if len(parts) == 1 else shapely.MultiPolygon(parts)))
         return segments, turns
 
+    def _sample(self, nodes: list[Point], margin: float) -> tuple[Point, Point]:
+        """A random point and its nearest node (L1)."""
+        c = self.config
+        new = (self._snap(self.rng.uniform(margin, c.width - margin)), self._snap(self.rng.uniform(margin, c.height - margin)))
+        return new, min(nodes, key=lambda node: abs(node[0] - new[0]) + abs(node[1] - new[1]))
+
     def compute(self) -> World:
         c = self.config
         margin = c.corridor_width * (1 + c.width_spread) / 2
@@ -94,28 +100,23 @@ class WorldGeneratorCorridor(WithPedestrians):
         nodes: list[Point] = [(self._snap(c.width / 2), self._snap(c.height / 2))]
         layout = Layout()
         for _ in range(c.branches):
-            new = (self._snap(self.rng.uniform(margin, c.width - margin)), self._snap(self.rng.uniform(margin, c.height - margin)))
-            near = min(nodes, key=lambda node: abs(node[0] - new[0]) + abs(node[1] - new[1]))
-            if c.bends:
-                for _ in range(20):
-                    if math.dist(new, near) >= 3 * c.corridor_width:
-                        break
-                    new = (self._snap(self.rng.uniform(margin, c.width - margin)), self._snap(self.rng.uniform(margin, c.height - margin)))
-                    near = min(nodes, key=lambda node: abs(node[0] - new[0]) + abs(node[1] - new[1]))
-                else:
-                    continue
-                width = c.corridor_width * self.rng.uniform(1 - c.width_spread, 1 + c.width_spread)
+            new, near = self._sample(nodes, margin)
+            for _ in range(19):
+                if not c.bends or math.dist(new, near) >= 3 * c.corridor_width:
+                    break
+                new, near = self._sample(nodes, margin)
+            width = c.corridor_width * self.rng.uniform(1 - c.width_spread, 1 + c.width_spread)
+            if c.bends and math.dist(new, near) >= 3 * c.corridor_width:
                 segments, turns = self._winding(new, near, margin, width)
                 layout.segments.extend(segments)
                 layout.areas.extend(turns)
             else:
                 elbow = (new[0], near[1]) if self.rng.random() < 0.5 else (near[0], new[1])
-                width = c.corridor_width * self.rng.uniform(1 - c.width_spread, 1 + c.width_spread)
                 layout.segments.extend(Segment(a=a, b=b, width=width) for a, b in ((new, elbow), (elbow, near)) if a != b)
                 half = width / 2
                 layout.areas.extend(Area(polygon=shapely.box(x - half, y - half, x + half, y + half)) for x, y in dict.fromkeys((new, elbow, near)))
             nodes.append(new)
         if not layout.segments:
-            raise ValueError(f'no branch at least {3 * c.corridor_width} m long fits a {c.width} x {c.height} m extent')
+            raise ValueError(f'no branch fits a {c.width} x {c.height} m extent')
         world, self.diagnostics = compile_layout(layout)
         return world

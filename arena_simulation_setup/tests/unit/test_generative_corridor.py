@@ -73,6 +73,18 @@ def test_bends_wind_the_corridors_and_keep_one_tree():
         assert angled(free) > 0.1, seed
 
 
+def test_bends_in_an_extent_too_small_for_a_kink_keep_every_branch():
+    for seed in range(5):
+        generator, free = build(seed, width=7.0, height=7.0, branches=8, bends=2, wiggle=0.2)
+        assert generator.diagnostics.components == 1, seed
+        assert angled(free) == 0, seed
+
+
+def test_a_dense_winding_tree_with_a_width_spread_renders():
+    for seed in range(20):
+        WorldGeneratorCorridor({'branches': 60, 'bends': 2, 'wiggle': 0.2, 'width_spread': 0.3}, random.Random(seed)).compute().all_levels[0].render(0.05)
+
+
 def test_winding_corridors_turn_at_multiples_of_45_degrees():
     for seed in range(5):
         _, free = build(seed, branches=12, bends=2, wiggle=0.2)
