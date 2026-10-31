@@ -58,13 +58,25 @@ def test_no_zone_covers_an_obstacle():
 
 def test_zones_show_the_islands():
     _, level = build(obstacles=300, obstacle_size=0.5)
-    assert diagnostics_of(level).islands > 100
+    diagnostics = diagnostics_of(level)
+    assert diagnostics.components == 1 and diagnostics.islands > 100
 
 
 def test_a_dense_field_renders():
     for seed in range(10):
         _, level = build(seed, obstacles=300, obstacle_size=0.5, size_spread=0.5)
         level.render(0.05)
+
+
+def test_a_dense_field_stays_in_one_piece():
+    for seed in range(5):
+        generator, _ = build(seed, obstacles=60, obstacle_size=1.5)
+        assert generator.diagnostics.components == 1, seed
+
+
+def test_a_box_the_obstacles_cover_is_refused():
+    with pytest.raises(ValueError):
+        build(obstacles=1, obstacle_size=50.0)
 
 
 def test_fill_grows_with_the_count():
