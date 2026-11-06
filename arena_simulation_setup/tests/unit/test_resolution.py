@@ -5,7 +5,7 @@ import pytest
 
 from arena_simulation_setup.shared.entities import DynamicObstacle, Waypoint
 from arena_simulation_setup.utils.cattrs import converter
-from arena_simulation_setup.utils.geometry import PointResolver, Pose, Position
+from arena_simulation_setup.utils.geometry import PointResolver, Pose, Position, sample_point_in_polygon
 from arena_simulation_setup.utils.resolution import activate_resolver, current_resolver
 
 
@@ -45,6 +45,23 @@ def test_point_resolver_unknown_ref_lists_candidates():
 def test_point_resolver_respects_is_valid():
     pt = _resolver(is_valid=lambda p: p.x >= 1.0).resolve("zone_a")
     assert pt.x >= 1.0
+
+
+def _u_shape() -> list[Position]:
+    return [Position(0.0, 0.0), Position(3.0, 0.0), Position(3.0, 3.0), Position(2.0, 3.0), Position(2.0, 1.0), Position(1.0, 1.0), Position(1.0, 3.0), Position(0.0, 3.0)]
+
+
+def test_sample_point_in_concave_polygon_stays_inside_and_uniform():
+    rng = np.random.default_rng(0)
+    points = [sample_point_in_polygon(_u_shape(), rng) for _ in range(4000)]
+    assert all(0.0 <= p.x <= 3.0 and 0.0 <= p.y <= 3.0 and not (1.0 < p.x < 2.0 and p.y > 1.0) for p in points)
+    assert sum(p.y < 1.0 for p in points) / len(points) == pytest.approx(3 / 7, abs=0.03)
+
+
+def test_sample_point_in_convex_polygon_draws_as_before():
+    rng = np.random.default_rng(0)
+    points = [sample_point_in_polygon(_square(), rng) for _ in range(3)]
+    assert [c for p in points for c in (p.x, p.y)] == pytest.approx([0.539573427528, 0.6215204754, 0.547948367044, 0.174488845445, 0.541006878032, 1.453756895101])
 
 
 # ---------------------------------------------------------------------------

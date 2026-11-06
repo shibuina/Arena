@@ -519,6 +519,20 @@ class Scale(Parseable, Idempotent):
         return geometry_msgs.msg.Point(x=self.x, y=self.y, z=self.z)
 
 
+def _triangles(vertices: list[Position]) -> list[tuple[Position, Position, Position]]:
+    """The polygon as triangles, a fan from the first vertex when it is convex."""
+    n = len(vertices)
+    turns = [(b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x) for a, b, c in ((vertices[i - 1], vertices[i], vertices[(i + 1) % n]) for i in range(n))]
+    if all(turn >= 0 for turn in turns) or all(turn <= 0 for turn in turns):
+        return [(vertices[0], vertices[i], vertices[i + 1]) for i in range(1, n - 1)]
+
+    # a concave polygon's fan triangles overlap and reach outside it
+    import shapely
+
+    polygon = shapely.make_valid(shapely.Polygon([(point.x, point.y) for point in vertices]))
+    return [typing.cast(tuple[Position, Position, Position], tuple(Position(x, y) for x, y in triangle.exterior.coords[:3])) for triangle in shapely.get_parts(shapely.constrained_delaunay_triangles(polygon))]
+
+
 def sample_point_in_polygon(
     vertices: list[Position],
     rng: np.random.Generator,
@@ -530,19 +544,12 @@ def sample_point_in_polygon(
     if n < 3:
         return vertices[0] if vertices else Position(0, 0)
 
-    # Fan triangulation from first vertex
-    triangles = []
-    areas = []
-    v0 = vertices[0]
-    for i in range(1, n - 1):
-        v1, v2 = vertices[i], vertices[i + 1]
-        area = abs((v1.x - v0.x) * (v2.y - v0.y) - (v2.x - v0.x) * (v1.y - v0.y)) / 2.0
-        triangles.append((v0, v1, v2))
-        areas.append(area)
+    triangles = _triangles(vertices)
+    areas = [abs((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)) / 2.0 for a, b, c in triangles]
 
     total = sum(areas)
     if total <= 0:
-        return Position(v0.x, v0.y)
+        return Position(vertices[0].x, vertices[0].y)
 
     def _sample_once() -> Position:
         r = float(rng.random()) * total
