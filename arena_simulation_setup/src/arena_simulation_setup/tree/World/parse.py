@@ -26,7 +26,7 @@ WORLD_KEYS = frozenset({'format', 'layout', 'defaults', 'schedules', 'signals', 
 DEFAULT_KEYS = frozenset({'floor', 'ceiling', 'wall', 'door'})
 LEVEL_KEYS = frozenset({'id', 'elevation', 'zones', 'walls', 'doors', 'elevators', 'stairs', 'escalators', 'ramps', 'objects', 'humans', 'lights', 'sounds', 'microphones', 'pedestrian_walls'})
 RAMP_KEYS = frozenset({'name', 'mouth', 'mouth_side', 'size', 'base', 'rise', 'floor', 'sides'})
-STAIRS_KEYS = frozenset({'name', 'kind', 'mouth', 'mouth_side', 'size', 'to', 'exit', 'style', 'speed', 'direction', 'tread', 'landing_length', 'plank', 'headroom', 'material', 'surfaces', 'sides', 'rails', 'models'})
+STAIRS_KEYS = frozenset({'name', 'kind', 'mouth', 'mouth_side', 'size', 'to', 'exit', 'base', 'rise', 'floor', 'style', 'speed', 'direction', 'tread', 'landing_length', 'plank', 'headroom', 'material', 'surfaces', 'sides', 'rails', 'models'})
 STAIRS_SURFACE_KEYS = frozenset({'material', 'model'})
 STAIRS_MODEL_KEYS = frozenset({'model', 'at', 'yaw'})
 STAIRS_SIDE_KEYS = frozenset({'kind', 'material', 'height'})
@@ -156,9 +156,25 @@ def _stair_halves(path: str, raw: Mapping, kind: str, level_id: str, layout: str
     to = str(raw['to'])
     if to not in elevations:
         raise WorldFormatError(f'{path}.to: no level {to!r} in this world')
-    rise = elevations[to] - elevations[level_id]
-    if rise <= 0.0:
-        raise WorldFormatError(f'{path}.to: level {to!r} lies at elevation {elevations[to]}, not above level {level_id!r} at {elevations[level_id]}')
+    # a stair on its own level joins two floors whose heights come from ramps, so it takes them as a ramp does
+    same = to == level_id
+    if same:
+        if 'exit' in raw:
+            raise WorldFormatError(f'{path}.exit: a stair on its own level runs straight on, its top half right after the bottom half')
+        rise = _at(f'{path}.rise', lambda: float(raw.get('rise', 0.0)))
+        if rise <= 0.0:
+            raise WorldFormatError(f'{path}.rise: a stair on its own level climbs `rise` meters from `base`, expected more than 0, got {rise!r}')
+        base = _at(f'{path}.base', lambda: float(raw.get('base', 0.0)))
+    else:
+        for key in ('base', 'rise'):
+            if key in raw:
+                raise WorldFormatError(f'{path}.{key}: only a stair on its own level takes {key}, the levels\' elevations set it between levels')
+        rise, base = elevations[to] - elevations[level_id], 0.0
+        if rise <= 0.0:
+            raise WorldFormatError(f'{path}.to: level {to!r} lies at elevation {elevations[to]}, not above level {level_id!r} at {elevations[level_id]}')
+    floor = raw.get('floor', True)
+    if not isinstance(floor, bool):
+        raise WorldFormatError(f'{path}.floor: expected true or false, got {floor!r}')
     size = raw.get('size', [5.2, 1.4])
     if not isinstance(size, list) or len(size) != 2 or min(float(v) for v in size) <= 0.0:
         raise WorldFormatError(f'{path}.size: expected a positive [length, width], got {size!r}')
@@ -173,7 +189,7 @@ def _stair_halves(path: str, raw: Mapping, kind: str, level_id: str, layout: str
         raise WorldFormatError(f'{path}.direction: expected up or down, got {direction!r}')
     if layout == 'stacked' and 'exit' in raw:
         raise WorldFormatError(f'{path}.exit: a stacked world places the top half itself, right after the bottom half')
-    if layout == 'spread' and 'exit' not in raw:
+    if layout == 'spread' and not same and 'exit' not in raw:
         raise WorldFormatError(f'{path}.exit: a spread world takes the mouth of the top half on level {to!r}, in its frame')
     shared = {key: raw[key] for key in ('style', 'speed', 'tread', 'landing_length', 'plank', 'headroom', 'material') if key in raw}
     probe = _named(path, {'name': name, 'position': [0.0, 0.0], 'kind': kind, 'size': [length, width], 'rise': rise, **shared}, Stairs, c)
@@ -187,21 +203,21 @@ def _stair_halves(path: str, raw: Mapping, kind: str, level_id: str, layout: str
         raise WorldFormatError(f'{path}.mouth_side: expected one of {sorted(_SIDES)}, got {mouth_side!r}')
     ax, ay = (-v for v in _SIDES[mouth_side])
     mouth = _at(f'{path}.mouth', lambda: Position.parse(raw['mouth']))
-    exit_point = Position(mouth.x + ax * 2.0 * length, mouth.y + ay * 2.0 * length) if layout == 'stacked' else _at(f'{path}.exit', lambda: Position.parse(raw['exit']))
+    exit_point = Position(mouth.x + ax * 2.0 * length, mouth.y + ay * 2.0 * length) if layout == 'stacked' or same else _at(f'{path}.exit', lambda: Position.parse(raw['exit']))
     far_side = next(side for side, vector in _SIDES.items() if vector == (ax, ay))
     bottom_name, top_name = f'{name}_bottom', f'{name}_top'
     boards_bottom = kind == 'stairs' or direction == 'up'
     boards_top = kind == 'stairs' or direction == 'down'
-    common = {'kind': kind, 'size': [length, width], 'rise': rise, 'group': name, 'stacked': layout == 'stacked', **shared}
-    bottom = _named(path, {**common, 'name': bottom_name, 'position': [mouth.x + ax * length / 2.0, mouth.y + ay * length / 2.0], 'mouth_side': mouth_side, 'to': top_name if boards_bottom else ''}, Stairs, c)
-    top = _named(path, {**common, 'name': top_name, 'position': [exit_point.x - ax * length / 2.0, exit_point.y - ay * length / 2.0], 'mouth_side': far_side, 'top': True, 'to': bottom_name if boards_top else ''}, Stairs, c)
+    common = {'kind': kind, 'size': [length, width], 'rise': rise, 'group': name, 'stacked': layout == 'stacked' and not same, 'floor': floor, **shared}
+    bottom = _named(path, {**common, 'name': bottom_name, 'position': [mouth.x + ax * length / 2.0, mouth.y + ay * length / 2.0, base], 'mouth_side': mouth_side, 'to': top_name if boards_bottom else ''}, Stairs, c)
+    top = _named(path, {**common, 'name': top_name, 'position': [exit_point.x - ax * length / 2.0, exit_point.y - ay * length / 2.0, base + rise if same else 0.0], 'mouth_side': far_side, 'top': True, 'to': bottom_name if boards_top else ''}, Stairs, c)
     surfaces, sides, rails = _stair_dressing(path, raw, width)
     surface_models, models = _stair_models(path, raw)
     bottom = attrs.evolve(bottom, surfaces=surfaces, sides=sides, rails=rails, surface_models=surface_models, models=models)
     top = attrs.evolve(top, surfaces=dict(surfaces), sides={'left': sides['right'], 'right': sides['left']}, rails=[attrs.evolve(rail, across=-rail.across) for rail in rails], surface_models=dict(surface_models), models=list(models))
     bottom.preset = top.preset = preset
     bottom.authored = top.authored = authored
-    if layout == 'stacked':
+    if layout == 'stacked' and not same:
         top.overhang = bottom.overhang = _overhang(bottom)
     return bottom, top
 
