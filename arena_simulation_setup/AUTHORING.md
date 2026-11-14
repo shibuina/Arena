@@ -272,8 +272,10 @@ joins and names one whole staircase:
 | `mouth` | `[x, y]` middle of the open lower end, in the level frame |
 | `mouth_side` | side it is entered from (`+x`, `-x`, `+y`, `-y`, default `-x`), the staircase running away from it |
 | `size` | `[length, width]` of the whole staircase in metres, length along the walking direction |
-| `to` | id of the level it reaches, above its own |
+| `to` | id of the level it reaches, above its own, or its own level for a staircase between two floors of it |
 | `exit` | spread worlds only: `[x, y]` middle of the open upper end on the `to` level, in that level's frame |
+| `base`, `rise` | a staircase on its own level only: height of its mouth and how far it climbs, as for a [ramp](#ramps) |
+| `floor` | `false` builds nothing of it (steps, landings, treads, linings, brushes), for a staircase the world already shows, a scan |
 | `kind` | optional staircase kind to start from, see below |
 
 The rise is the difference of the two levels' `elevation`, a level without
@@ -285,6 +287,15 @@ The world's `layout` says how its levels relate. In a `stacked` world every
 level shares one floor plan and the staircase runs straight up from its
 mouth. In a `spread` world (the default) every level keeps a floor plan of
 its own, and the entry also takes `exit`.
+
+A staircase whose `to` is its own level joins two floors of that level, whose heights come from its `ramps`, as in a
+scanned building on one level: it takes `base` and `rise` instead of the levels' elevations and runs straight on, its
+halves joined as in a stacked world in any layout, so it has no seam wall and nothing crosses it: an agent walks or is
+carried from one half onto the other. The floor
+plan walks through it like any floor, and HumanSim weighs walking over it, riding it and walking round, and never
+routes a walker against a running belt, see HumanSim's [stairs](../humansim/README.md#stairs). With `floor: false` its
+side walls (`sides`, e.g. an invisible wall kind) are all it adds, and the walking height on it follows its ramp line,
+not treads, since the steps are the world's own.
 
 `size` sets the incline, nothing else does, and nothing rejects a steep one:
 
