@@ -156,7 +156,8 @@ def _stair_halves(path: str, raw: Mapping, kind: str, level_id: str, layout: str
     to = str(raw['to'])
     if to not in elevations:
         raise WorldFormatError(f'{path}.to: no level {to!r} in this world')
-    # a stair on its own level joins two floors whose heights come from ramps, so it takes them as a ramp does
+    # a stair on its own level joins two floors whose heights come from ramps, so it takes them as a ramp does, and its
+    # halves meet in one place, joined as in a stacked world
     same = to == level_id
     if same:
         if 'exit' in raw:
@@ -208,7 +209,7 @@ def _stair_halves(path: str, raw: Mapping, kind: str, level_id: str, layout: str
     bottom_name, top_name = f'{name}_bottom', f'{name}_top'
     boards_bottom = kind == 'stairs' or direction == 'up'
     boards_top = kind == 'stairs' or direction == 'down'
-    common = {'kind': kind, 'size': [length, width], 'rise': rise, 'group': name, 'stacked': layout == 'stacked' and not same, 'floor': floor, **shared}
+    common = {'kind': kind, 'size': [length, width], 'rise': rise, 'group': name, 'stacked': layout == 'stacked' and not same, 'floor': floor, 'same_level': same, **shared}
     bottom = _named(path, {**common, 'name': bottom_name, 'position': [mouth.x + ax * length / 2.0, mouth.y + ay * length / 2.0, base], 'mouth_side': mouth_side, 'to': top_name if boards_bottom else ''}, Stairs, c)
     top = _named(path, {**common, 'name': top_name, 'position': [exit_point.x - ax * length / 2.0, exit_point.y - ay * length / 2.0, base + rise if same else 0.0], 'mouth_side': far_side, 'top': True, 'to': bottom_name if boards_top else ''}, Stairs, c)
     surfaces, sides, rails = _stair_dressing(path, raw, width)

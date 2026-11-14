@@ -140,21 +140,36 @@ def test_a_stair_on_its_own_level_joins_two_floors_of_it_straight_on() -> None:
     assert world.validate() == []
 
 
-def test_a_stair_on_its_own_level_keeps_its_seam_where_pairs_between_levels_join() -> None:
-    world = parse_world(_world(_link()))
-    joined = {stair.name: stair.joined for level in navmesh_levels(world, world.stack_offsets()) for stair in level.stairs}
-    assert joined['up_bottom'] and joined['up_top']
-    assert not joined['link_bottom'] and not joined['link_top']
-    seams = [wall for wall in _stairs(world)['link_bottom'].walls() if wall.start.x == wall.end.x]
-    assert len(seams) == 1 and seams[0].start.x == pytest.approx(11.0)
+def test_a_stair_on_its_own_level_is_joined_in_any_layout_with_no_seam_wall() -> None:
+    for change in (_link(), lambda data: (_spread(data), _link()(data))):
+        world = parse_world(_world(change))
+        stairs = _stairs(world)
+        assert stairs['link_bottom'].joined and stairs['link_top'].joined
+        assert stairs['link_bottom'].inset < 0.0 and stairs['link_bottom'].reach == 0.0
+        assert not [wall for wall in stairs['link_bottom'].walls() if wall.start.x == wall.end.x]
+        joined = {stair.name: stair.joined for level in navmesh_levels(world, world.stack_offsets() if world.layout == 'stacked' else {}) for stair in level.stairs}
+        assert joined['link_bottom'] and joined['link_top']
+        assert joined['up_bottom'] == (world.layout == 'stacked')
 
 
-def test_a_stair_with_floor_off_builds_nothing_and_walls_its_seam_in_its_sides_style() -> None:
+def test_a_stair_with_floor_off_builds_nothing_and_walls_in_its_sides_style() -> None:
     scan = {'kind': 'scan_boundary'}
-    bottom = _stairs(parse_world(_world(_link(floor=False, sides={'left': scan, 'right': scan}))))['link_bottom']
-    assert bottom.static_boxes() == [] and bottom.open_walls() == [] and bottom.tread_models(0.0) == []
-    walls = bottom.walls()
-    assert len(walls) == 5 and {wall.kind for wall in walls} == {"scan_boundary"}
+    sides = {'left': scan, 'right': scan}
+    world = parse_world(_world(lambda data: (_link(floor=False, sides=sides)(data), _set(0, 'stairs', 0, floor=False, sides=sides)(data))))
+    link, up = _stairs(world)['link_bottom'], _stairs(world)['up_bottom']
+    assert link.static_boxes() == [] and link.open_walls() == [] and link.tread_models(0.0) == [] and up.static_boxes() == []
+    assert len(link.walls()) == 4 and {wall.kind for wall in link.walls()} == {'scan_boundary'}
+    assert [wall.kind for wall in up.walls() if wall.start.x == wall.end.x] == ['scan_boundary']
+
+
+def test_a_stair_with_floor_off_walks_on_its_ramp_line_not_on_treads() -> None:
+    level = parse_world(_world(_link(floor=False))).levels['0'].stairs
+    stepped = parse_world(_world(_link())).levels['0'].stairs
+    xs = [15.0 - 0.137 * k for k in range(60)]
+    smooth = [stair_height(level, x, 8.0) for x in xs]
+    assert all(b <= a + 1e-9 for a, b in zip(smooth, smooth[1:], strict=False)) or all(b >= a - 1e-9 for a, b in zip(smooth, smooth[1:], strict=False))
+    steps = [stair_height(stepped, x, 8.0) for x in xs]
+    assert max(abs(b - a) for a, b in zip(smooth, smooth[1:], strict=False)) < max(abs(b - a) for a, b in zip(steps, steps[1:], strict=False))
 
 
 def test_a_stair_half_holds_its_footing_over_the_ramp_under_it() -> None:

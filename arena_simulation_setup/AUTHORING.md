@@ -289,11 +289,13 @@ mouth. In a `spread` world (the default) every level keeps a floor plan of
 its own, and the entry also takes `exit`.
 
 A staircase whose `to` is its own level joins two floors of that level, whose heights come from its `ramps`, as in a
-scanned building on one level: it takes `base` and `rise` instead of the levels' elevations, runs straight on as in a
-stacked world, and keeps its seam wall, so the floor plan never walks through it and HumanSim routes walkers over it
-like over a staircase between levels. They ride it when that is sooner than walking round, see HumanSim's
-[stairs](../humansim/README.md#stairs). With `floor: false` its side walls (`sides`, e.g. an invisible wall kind) and
-its seam wall are all it adds; the walking height on it still follows its steps or treads.
+scanned building on one level: it takes `base` and `rise` instead of the levels' elevations and runs straight on, its
+halves joined as in a stacked world in any layout, so it has no seam wall and nothing crosses it: an agent walks or is
+carried from one half onto the other. The floor
+plan walks through it like any floor, and HumanSim weighs walking over it, riding it and walking round, and never
+routes a walker against a running belt, see HumanSim's [stairs](../humansim/README.md#stairs). With `floor: false` its
+side walls (`sides`, e.g. an invisible wall kind) are all it adds, and the walking height on it follows its ramp line,
+not treads, since the steps are the world's own.
 
 `size` sets the incline, nothing else does, and nothing rejects a steep one:
 
