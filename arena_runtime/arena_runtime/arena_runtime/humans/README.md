@@ -92,7 +92,7 @@ wheelchair (`PUSH_WHEELCHAIR`) walks with `walk_pushwheelchair`, stands with `st
 the `wheelchair_manual` rider she pushes keeps his hands on his thighs (`seated_wheelchair_lap`). A ped whose profile changes blends from the
 old one over `AnimationManager.PROFILE_CROSSFADE_S` (0.6 s), its finger curls with it.
 
-Last, [`wire.py`](wire.py) compiles the 42 into `ped.body` over the model's stance ([BODY.md](BODY.md)), leaving only driven joints in `joint_state`. `ped.body` feeds the ROS4HRI skeleton in rviz through `hri_producer` and the Isaac, MuJoCo and Gazebo pedestrian rigs.
+Last, [`wire.py`](wire.py) compiles the 42 into `ped.body` over the model's stance ([BODY.md](BODY.md)), leaving only driven joints in `joint_state`. `fill_bodies` poses the whole roster in one `semantic_to_bodies` batch per publish, each ped over its model's `CompiledStance`, compiled once per model. `ped.body` feeds the ROS4HRI skeleton in rviz through `hri_producer` and the Isaac, MuJoCo and Gazebo pedestrian rigs.
 
 A model whose bundle ships a `.rig` with drivers (wheelchair bundles: `l_wheel`, `r_wheel`) gets those joints
 set on top, whoever filled the field: [`drivers.py`](drivers.py) rolls each wheel over the distance its contact
@@ -321,6 +321,15 @@ A `regions:` source entry's `config.agent:` block uses a different, wider schema
 
 A scripted entry renders with its `model:`. A source-spawned agent has none, so it takes a model from its agent type: when the type lists `assets:` tags, one of the human bundles on disk (world-local, shared-local or already cached) whose `annotation.yaml` carries every tag is drawn per agent from the episode seed. A type without `assets:`, or tags no bundle carries (warned once per type), keeps the default model.
 
+### Held devices
+
+An agent type's `device:` block names the assistive device its pedestrians hold: the prop bone their character carries
+(`{kind: cane, bone: cane}`), or an object held in both hands (`{kind: walking_frame, model: <object>}`, centered under the
+`pose.hold` grips). `publish_arena_peds` poses the character with the joint angles it publishes, through the same forward
+kinematics the simulators draw with (`ActorPose`), and writes the device's outline on the ground into `Pedestrian.device`
+([`devices.py`](devices.py)). Bodies are loaded off the publish path, once per character. The robot's collision tracker
+tests its footprint against `Pedestrian.radius` and `Pedestrian.device` (`devices.shapes`).
+
 ### Static world objects
 
 An `objects:` scenario or world entry that pedestrians can interact with (a bench, a
@@ -371,10 +380,13 @@ is ignored.
 Enforcement is substitution at the two outbound funnels: `publish_arena_peds`
 (the bus) and `relay_pedestrian_update` (the sim). Substitution is
 copy-on-write: possessed entries swap to deep copies of the stored state,
-everything else passes through untouched, and the caller's message is never
+advanced along their stored twist since receipt for at most
+`POSSESSION_EXTRAPOLATION_S` (0.2 s), everything else passes through untouched, and the caller's message is never
 mutated (hunav hands a persistent container to both funnels). Substituted
 entries get `gait_phase` re-stamped from the base's own `GaitGenerator`
-phase table, engines never see the publisher's zero.
+phase table, engines never see the publisher's zero. Both funnels compile
+the substituted joint angles into the body pose (`wire.fill_body`), so a
+possessed walker animates in every simulator.
 
 `human/move` (`srv/MovePedestrians`, env-level) is a teleport served by the
 base, only `name` and `pose` are read. Known peds are moved in place (no
@@ -463,7 +475,8 @@ in Lyon to `madras_topview`, and `arena asset import scenario glow <YYYY-mm-ddTH
 `ArenaHumanSimulator` feeds possession back to the engine: a loop at the
 possession stream rate (20 Hz) publishes every possessed ped and every
 tracked robot on the engine's `world_state` topic, pose and world-frame
-velocity both. Possessed peds that are known engine agents go out under
+velocity both, each robot sized by its footprint's disc radius (the mobile cap's
+`radius`, else the padded footprint's circumradius, 0.3 m without a mobile cap). Possessed peds that are known engine agents go out under
 the engine's own agent id, so the engine keeps its internal copy in full
 sync: pose slaved to the feed, velocity carried through so neighboring
 agents anticipate the motion, autonomy suspended while the lease is

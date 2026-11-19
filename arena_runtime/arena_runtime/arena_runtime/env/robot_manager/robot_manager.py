@@ -34,7 +34,7 @@ from arena_runtime.env.robot_manager.controller_manager_client import Controller
 from arena_runtime.env.robot_manager.controller_transitions import next_transition
 from arena_runtime.env.robot_manager.task_runner import PhaseState, TaskRunner, Transition, standoff_pose
 from arena_runtime.node_params import NodeParams
-from arena_runtime.shared import Orientation, Pose, Position, Robot
+from arena_runtime.shared import Orientation, Pose, Position, PositionRadius, Robot, footprint_radius
 from arena_runtime.sim._interface import SimUnavailable
 
 if typing.TYPE_CHECKING:
@@ -69,6 +69,7 @@ _CM_CALL_TIMEOUT = 10.0
 _CM_REFUSAL_GRACE_S = 20.0
 _CM_SWITCH_TIMEOUT = 60.0
 _CM_SWITCH_TIMED_OUT = "timed out"
+_ZONE_TARGET_MARGINS = (0.3, 0.15, 0.0)
 
 _TELEPORT_TOLERANCE = 0.3
 _TELEPORT_SETTLE_TIMEOUT = 2.0
@@ -86,18 +87,6 @@ def log_level_actions(spec: str) -> list[NodeLogLevelExtension.SetGlobalLogLevel
         NodeLogLevelExtension.SetGlobalLogLevelAction(_MOVEIT_QUIET_RULES, fallback=True),
         NodeLogLevelExtension.SetGlobalLogLevelAction(_COLLISION_MONITOR_RULES, fallback=True),
     ]
-
-
-def footprint_radius(config: RobotView) -> float:
-    """Disc radius of a robot model: the mobile cap's `radius`, else the circumradius of its padded footprint."""
-    mobile = config.mobile
-    if mobile is None:
-        raise ValueError(f"robot model {config.name!r} has no mobile cap, so no footprint radius")
-    if mobile.radius is not None:
-        return mobile.radius
-    if mobile.footprint:
-        return max(math.hypot(x, y) for x, y in mobile.footprint) + (mobile.footprint_padding or 0.0)
-    raise ValueError(f"{mobile.path}: sets neither radius nor footprint")
 
 
 class RobotManager(NodeInterface):
@@ -606,10 +595,20 @@ class RobotManager(NodeInterface):
         if corners is None:
             return phase
         if any(zone.name == phase.target for zone in world.zones):
-            try:
-                position = self.node._world_manager.get_position_on_map(self.safe_distance, forbid=False, polygon=shapely.Polygon([(corner.x, corner.y) for corner in corners]))
-            except RuntimeError as e:
-                raise ValueError(f"robot {self.name!r}: goto target {phase.target!r} has no free cell with {self.safe_distance:.2f} m clearance") from e
+            others = [PositionRadius(pose.position.x, pose.position.y, radius=manager.radius) for name, manager in self.node._robots_manager.managers.items() if name != self.name and (pose := manager.pose) is not None]
+            zone = shapely.Polygon([(corner.x, corner.y) for corner in corners])
+            position = None
+            for margin in _ZONE_TARGET_MARGINS:
+                inner = zone.buffer(-margin) if margin else zone
+                if inner.is_empty:
+                    continue
+                try:
+                    position = self.node._world_manager.get_position_on_map(self.safe_distance, others, forbid=False, polygon=inner)
+                except RuntimeError:
+                    continue
+                break
+            if position is None:
+                raise ValueError(f"robot {self.name!r}: goto target {phase.target!r} has no free cell with {self.safe_distance:.2f} m clearance")
         else:
             position = world.point_resolver(self.node.conf.General.RNG.stream("robots", "target", self.name)).resolve(phase.target)
         return attrs.evolve(phase, pose=Pose(position=position, orientation=Orientation.identity()))

@@ -40,6 +40,8 @@ Defined in [`_interface.py`](_interface.py):
 | `robot_move` | `(Sequence[Robot]) -> Sequence[bool]` |
 | `robot_delete` | `(Sequence[Robot]) -> Sequence[bool]` |
 
+Gazebo spawns a robot from its URDF with the `<dynamics damping>` of the joints ros2_control commands by position set to 0 (`_free_position_joints`), where Isaac and MuJoCo drop it, so the damping cannot hold an arm back from its trajectory. It zeroes the attribute rather than dropping it because urdfdom rejects a `<dynamics>` with neither damping nor friction.
+
 ### `WorldITF`
 
 [`_interface.py`](_interface.py)
@@ -308,6 +310,8 @@ Overridable hooks (concrete default no-ops):
 | `after_reset_episode()` | episode-boundary hook after every reset; default no-op |
 | `step(n=1)` | advance simulation by `n` ticks; default no-op returns `True` |
 
+Gazebo, Isaac and MuJoCo launch each robot's stack (robot_state_publisher, controller_manager, urdf_publisher, twist_stamper, odom_relay) through `BaseSim._track_robot_stack`, which stops the stack of the robot's previous spawn first, and `robot_delete` stops it through `BaseSim._stop_robot_stacks`. Isaac's `remove_world` calls `ResetWorld` for the legacy `/World/Walls`, `Doors`, `Floors` and `Elevators` roots and `DeletePrims` for the env's own `env_<id>/Walls`, `Floors` and `Ceilings` roots.
+
 ## Lockstep
 
 `SimLifecycle.step_seconds(seconds) -> float` advances a held sim by an exact
@@ -319,7 +323,12 @@ tick first raises gz `real_time_factor` so the limiter does not pace it, and
 the next unpause restores it. A single-tick step leaves the factor alone. A step
 returns once `/clock` carries its target, and the next unpause first waits for
 `/world/default/stats` to report gz paused at or past that target, since gz undoes
-an unpause that lands while a batch is still running. Isaac calls
+an unpause that lands while a batch is still running. An unpause then waits up to
+2 s for `/clock` to move and resends itself up to three times while it stays
+frozen and no pause came after it. A pause does not drop queued `multi_step`
+iterations, and gz pauses itself when they run out, so after an unpause the host
+watches the stats until the clock has run 10 s and unpauses gz again whenever
+two reports show it paused with no pause or step called since. Isaac calls
 `/isaac/StepSimulationN` and awaits `/clock` reaching the projected target.
 MuJoCo calls `/mujoco/Step` with `seconds / 0.002` physics steps (the server
 publishes `/clock` and drains its sensor and control pumps every 20 ms of sim
@@ -343,7 +352,8 @@ during a reset hold (see the [manager README](../../../../arena_runtime/arena_ru
 
 Components self-register their data channels via
 `sim_lifecycle/lockstep/register` (LockstepRegister: `caller`, `env`,
-`channels[]` of `{name, topic, type, period_s, hard}`. Re-registering under
+`channels[]` of `{name, topic, type, period_s, hard}`, a `type` without a
+`std_msgs/Header header` is refused). Re-registering under
 a `caller` replaces its set, an empty `channels[]` clears it, per-env
 registrations drop when their env despawns, and registrations merge into a
 running lockstep live. The arena_humansim adapter self-registers `engine`
@@ -388,7 +398,9 @@ latest stamp is newer than `T - period_s`, compared at the clock's
 nanosecond resolution: the gate asks whether the producer has covered the
 clock, never whether it landed on a window boundary, so a producer whose
 own grid is phased against the ledger's cannot deadlock the run. Windows
-only pick the step sizes the scheduler takes, and a covered hard channel's
+only pick the step sizes the scheduler takes: each step is a whole number of
+`physics_dt` steps up to the earliest due channel, so every channel due
+inside that last step, across all envs, shares one tick. A covered hard channel's
 next check falls at its latest stamp plus `period_s`, so one beat never
 covers more than one period past its stamp, even when physics steps
 overshoot the due tick. A producer driven by the sim
@@ -396,12 +408,25 @@ clock registers `period_s` equal to its own tick length, which paces the
 sim to the producer's true coverage. An elapsed-based rate loop registers
 a period strictly above its interval. The arena_humansim engine ticks off
 `/clock` itself rather than an rcl timer, so a clock the gate is holding
-still owes it the tick the gate is waiting for.
+still owes it the tick the gate is waiting for, and it answers a repeated
+clock, which the gate sends while it waits, with its last frame. A producer
+that beats from an rcl timer on the sim clock (the hearing belief and policy
+nodes) gets it from `TimeNode.create_timer`, which drops the `EventsExecutor`'s
+repeated dispatch of a ready timer, so the timer never runs a period past the
+clock the gate holds, and stamps from `TimeNode.sim_time`, which already holds
+the time that fired the timer. These producers, the hearing front-ends and every
+`LockstepBeat` publish their beat through `ClockEcho`, so like the engine they
+answer a repeated clock with their last beat and one lost message does not hold
+the gate.
 
-`sim_lifecycle/lockstep/start` (LockstepStart: `target_rtf`, `ungated`)
-starts a run or reconfigures one in place: `target_rtf` of 0 is unpaced
+`sim_lifecycle/lockstep/start` (LockstepStart: `target_rtf`, `ungated`, `driven`)
+starts a run or reconfigures one in place, and a start with the running
+config only resumes it: `target_rtf` of 0 is unpaced
 while gates hold the pace and wall rate while no channel is registered,
-`ungated` free-steps ignoring every gate. Hard channels freeze-and-wait: the
+`ungated` free-steps ignoring every gate. A paced run sleeps against a wall
+schedule of the sim time it advanced, so a tick that overruns its share is
+repaid from the slack of the next ones, up to 0.25 s of wall time, and a pause,
+foreign hold or rebase restarts the schedule. Hard channels freeze-and-wait: the
 scheduler will not advance past a tick until every hard channel has a
 `header.stamp` covering it, so the weakest hard producer sets the pace by
 design. `soft` channels are observed and reported only. The scheduler also
@@ -409,16 +434,26 @@ idles while a foreign hold is open (episode resets) and rebases its window
 grid to whatever sim time passed meanwhile. An unpause window never unpauses
 the sim during a run: the scheduler keeps stepping for it, also under a
 foreign hold or `pause`, gated on every hard channel except those registered
-in the window holder's env. A failed step is retried under the run's hold
+in the window holder's env, which stay subscribed and keep their latest stamp
+for when the window closes. A failed step is retried under the run's hold
 after 1, 2, 4, 8 and 16 s, rebasing on the clock first, and a sixth
 consecutive failure ends the run and counts one lifecycle failure.
+A `driven` run is unpaced and steps only for requests and open unpause
+windows: `sim_lifecycle/lockstep/advance` (LockstepAdvance: `seconds`)
+queues sim time, rounded up to whole physics steps, steps it in one call
+and answers with the seconds advanced once every hard channel that came due
+inside it covers its last tick. Requests run in order, a foreign hold delays them, and a stop,
+reconfigure or crash fails the pending ones. arena_training's lockstep envs
+step the sim this way, one request per vec step, and gate on their own
+observation streams.
 `sim_lifecycle/lockstep/stop` ends the run and restores the pre-run
 pause state and gz `real_time_factor`, responding as soon as the hold is
 released (the guard against a draining gz chunk re-pausing the world runs
 in the background). `sim_lifecycle/lockstep/pause` /
 `sim_lifecycle/lockstep/resume` freeze and unfreeze the clock within a run
 without ending it. Status is the latched `/arena/state/lockstep` topic
-(LockstepStatus): `active`, `paused`, `ungated`, `target_rtf`,
+(LockstepStatus): `active`, `paused`, `ungated`, `driven`, `target_rtf`,
+`pending` (sim seconds owed to advance requests),
 `measured_rtf`, `tick`, `registrations`, `waiting_on`, `arrived`, and the
 run's cumulative counters: `gated_ticks` (ticks that waited on a hard
 channel) and `counts` (per channel topic, the ticks it was `due` on and
@@ -426,7 +461,8 @@ the messages `received`), both reset when a run starts.
 
 `lockstep.autostart`/`lockstep.channels`/`lockstep.target_rtf`/
 `lockstep.paused` params are read once at bringup (launch args
-`lockstep:=true lockstep.channels:="..."`), registering the channels under
+`lockstep`, `lockstep.rtf`, `lockstep.paused` and `lockstep.channels:="..."`,
+by default a run starts unpaused at rtf 1, `arena train` starts none), registering the channels under
 caller `launch`. Channel specs are `name|topic|type|period_s|hard-or-soft`
 with `{env}` expanded per env. CLI: `arena lockstep run [rtf:=N] [ungated]`
 (blocks, ctrl-c pauses), `on [rtf:=N] [ungated]`, `off`, `pause`, `resume`,
@@ -560,3 +596,5 @@ async def lazy_mysim(**kwargs: typing.Unpack[SimKwargs]) -> BaseSim:
 ```
 
 4. Add `MY_SIM = "my_sim"` to `SimSimulator` in `arena_bringup/constants.py`.
+
+Build a robot's robot_state_publisher with `_control.state_publisher_node`, whose `publish_frequency` of 1000 Hz puts every joint_states message on /tf instead of rsp's 20 Hz default.
